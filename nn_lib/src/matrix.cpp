@@ -3,9 +3,10 @@ module;
 #include <cstdlib>
 #include <memory>
 #include <print>
-#include "nn/types.h"
 
-export module matrix;
+export module nn:matrix;
+
+import :types;
 
 export class Matrix {
 public:

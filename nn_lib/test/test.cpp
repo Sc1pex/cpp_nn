@@ -1,7 +1,6 @@
 #include <print>
-#include "nn/types.h"
 
-import matrix;
+import nn;
 
 int main() {
     // Create a 2x3 zero-initialized matrix
