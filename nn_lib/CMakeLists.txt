@@ -1,5 +1,8 @@
-add_library(nn_lib STATIC
-    src/matrix.cpp
+add_library(nn_lib STATIC)
+target_sources(nn_lib 
+    PUBLIC
+        FILE_SET CXX_MODULES FILES
+            src/matrix.cpp
 )
 
 target_include_directories(nn_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
