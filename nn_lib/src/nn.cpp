@@ -38,7 +38,7 @@ Layer::Layer(Matrix weights, Matrix biases)
 }
 
 Matrix Layer::feed_forward(Matrix input) {
-    auto m = m_weights.mult(input);
+    auto m = input.mult(m_weights);
     m = m.add(m_biases);
     // Apply sigmoid
     for (u32 i = 0; i < m.cols() * m.rows(); i++) {
@@ -57,7 +57,7 @@ Layer Layer::random(u32 in, u32 out) {
 
     // Initialize weights with random values
     // and biases with zeros
-    Matrix weights{ out, in }, biases{ out, 1 };
+    Matrix weights{ in, out }, biases{ 1, out };
     for (u32 i = 0; i < in * out; i++) {
         weights.set_element(i, distrib(gen));
     }

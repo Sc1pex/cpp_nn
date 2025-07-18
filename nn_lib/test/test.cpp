@@ -8,7 +8,7 @@ int main() {
     NN network(shape);
 
     double input_data[] = { 0.5, -0.3 };
-    Matrix input(2, 1, input_data);
+    Matrix input(1, 2, input_data);
 
     Matrix output = network.feed_forward(std::move(input));
 
