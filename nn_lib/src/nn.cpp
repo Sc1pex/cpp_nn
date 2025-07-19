@@ -1,6 +1,7 @@
 module;
 
 #include <algorithm>
+#include <print>
 #include <ranges>
 #include <vector>
 
@@ -14,8 +15,12 @@ public:
     template<std::ranges::range T>
     NN(T shape);
 
-    // Feed forward a column matrix
+    // Feed forward a row matrix
     Matrix feed_forward(Matrix input);
+
+    // Calculate the cost of a matrix of row inputs and a matrix of row expected
+    // values
+    f64 cost(Matrix inputs, Matrix expected);
 
 private:
     std::vector<Layer> m_layers;
@@ -36,4 +41,42 @@ NN::NN(T shape) {
             return Layer::random(r[0], r[1]);
         });
     m_layers = std::ranges::to<std::vector<Layer>>(layers);
+}
+
+f64 NN::cost(Matrix inputs, Matrix expected) {
+    if (inputs.rows() != expected.rows()) {
+        std::println(
+            "Invalid call to cost with inputs of size ({}, {}) and expected of size ({}, {})",
+            inputs.rows(), inputs.cols(), expected.rows(), expected.cols()
+        );
+        std::abort();
+    }
+    if (inputs.cols() != m_layers[0].in()) {
+        std::println(
+            "Invalid call to cost with inputs of size ({}, {}) and first layer input size {}",
+            inputs.rows(), inputs.cols(), m_layers[0].in()
+        );
+        std::abort();
+    }
+    if (expected.cols() != m_layers.back().out()) {
+        std::println(
+            "Invalid call to cost with expected of size ({}, {}) and last layer output size {}",
+            expected.rows(), expected.cols(), m_layers.back().out()
+        );
+        std::abort();
+    }
+
+    f64 cost = 0.;
+
+    for (u32 r = 0; r < inputs.rows(); r++) {
+        Matrix inp{ 1, inputs.cols(), inputs.row(r) };
+        Matrix out = feed_forward(std::move(inp));
+
+        for (u32 c = 0; c < out.cols(); c++) {
+            f64 diff = out.element(0, c) - expected.element(r, c);
+            cost += diff * diff;
+        }
+    }
+
+    return cost / inputs.rows();
 }

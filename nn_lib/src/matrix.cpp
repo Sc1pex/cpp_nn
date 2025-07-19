@@ -29,6 +29,11 @@ public:
     void set_element(u32 row, u32 col, f64 value);
     void set_element(u32 idx, f64 value);
 
+    // Returns a non owning pointer to the first element of the row
+    // I don't like returning a raw pointer here but i also don't want to use a
+    // shared_ptr or write my own
+    double* row(u32 row);
+
 private:
     u32 m_rows;
     u32 m_cols;
@@ -133,4 +138,13 @@ void Matrix::set_element(u32 idx, f64 value) {
     }
 
     m_data[idx] = value;
+}
+
+double* Matrix::row(u32 row) {
+    if (row > m_rows) {
+        return nullptr;
+    }
+
+    u32 start_idx = row * m_cols;
+    return &m_data[start_idx];
 }

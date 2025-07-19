@@ -1,6 +1,7 @@
 module;
 
 #include <cmath>
+#include <print>
 #include <random>
 
 export module nn:layer;
@@ -14,13 +15,28 @@ public:
 
     Matrix feed_forward(Matrix input);
 
+    u32 in();
+    u32 out();
+
 private:
+    u32 m_in;
+    u32 m_out;
     Matrix m_weights;
     Matrix m_biases;
 };
 
 Layer::Layer(Matrix weights, Matrix biases)
 : m_weights(std::move(weights)), m_biases(std::move(biases)) {
+    if (m_biases.rows() != 1 || m_weights.cols() != m_biases.cols()) {
+        std::println(
+            "Invalid layer initialization with weights of size ({}, {}) and biases of size ({}, {})",
+            m_weights.rows(), m_weights.cols(), m_biases.rows(), m_biases.cols()
+        );
+        std::abort();
+    }
+
+    m_in = m_weights.rows();
+    m_out = m_weights.cols();
 }
 
 Matrix Layer::feed_forward(Matrix input) {
@@ -50,3 +66,10 @@ Layer Layer::random(u32 in, u32 out) {
 
     return Layer{ std::move(weights), std::move(biases) };
 }
+
+u32 Layer::in() {
+    return m_in;
+}
+u32 Layer::out() {
+    return m_out;
+};
