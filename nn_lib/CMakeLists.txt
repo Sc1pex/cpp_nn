@@ -11,3 +11,6 @@ target_sources(nn_lib
 
 add_executable(test test/test.cpp)
 target_link_libraries(test PRIVATE nn_lib)
+
+add_executable(xor test/xor.cpp)
+target_link_libraries(xor PRIVATE nn_lib)

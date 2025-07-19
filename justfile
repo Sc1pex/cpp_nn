@@ -9,3 +9,6 @@ build:
 
 run_nn_test_exe: build
     ./build/nn_lib/test
+
+run_xor: build
+    ./build/nn_lib/xor
