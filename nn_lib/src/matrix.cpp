@@ -12,16 +12,16 @@ export class Matrix {
 public:
     // Create a zero initialized matrix
     Matrix(u32 rows, u32 cols);
-    Matrix(u32 rows, u32 cols, double data[]);
+    Matrix(u32 rows, u32 cols, const f64 data[]);
 
-    u32 rows();
-    u32 cols();
-
-    // Returns a new matrix, or panics if there is a size missmatch
-    Matrix add(const Matrix& other);
+    u32 rows() const;
+    u32 cols() const;
 
     // Returns a new matrix, or panics if there is a size missmatch
-    Matrix mult(const Matrix& other);
+    Matrix add(const Matrix& other) const;
+
+    // Returns a new matrix, or panics if there is a size missmatch
+    Matrix mult(const Matrix& other) const;
 
     double element(u32 row, u32 col) const;
     double element(u32 idx) const;
@@ -33,6 +33,7 @@ public:
     // I don't like returning a raw pointer here but i also don't want to use a
     // shared_ptr or write my own
     double* row(u32 row);
+    const double* row(u32 row) const;
 
 private:
     u32 m_rows;
@@ -46,7 +47,7 @@ Matrix::Matrix(u32 rows, u32 cols) {
     m_data = std::make_unique<double[]>(m_cols * m_rows);
 }
 
-Matrix::Matrix(u32 rows, u32 cols, double data[]) {
+Matrix::Matrix(u32 rows, u32 cols, const f64 data[]) {
     m_rows = rows;
     m_cols = cols;
     m_data = std::make_unique<double[]>(m_cols * m_rows);
@@ -55,14 +56,14 @@ Matrix::Matrix(u32 rows, u32 cols, double data[]) {
     }
 }
 
-u32 Matrix::rows() {
+u32 Matrix::rows() const {
     return m_rows;
 }
-u32 Matrix::cols() {
+u32 Matrix::cols() const {
     return m_cols;
 }
 
-Matrix Matrix::add(const Matrix& other) {
+Matrix Matrix::add(const Matrix& other) const {
     if (this->m_cols != other.m_cols || this->m_rows != other.m_rows) {
         std::println(
             "Called add on incompatible matricies: ({} {}) and ({} {})",
@@ -83,7 +84,7 @@ Matrix Matrix::add(const Matrix& other) {
     return res;
 }
 
-Matrix Matrix::mult(const Matrix& other) {
+Matrix Matrix::mult(const Matrix& other) const {
     if (this->m_cols != other.m_rows) {
         std::println(
             "Called mult on incompatible matricies: ({} {}) and ({} {})",
@@ -141,6 +142,15 @@ void Matrix::set_element(u32 idx, f64 value) {
 }
 
 double* Matrix::row(u32 row) {
+    if (row > m_rows) {
+        return nullptr;
+    }
+
+    u32 start_idx = row * m_cols;
+    return &m_data[start_idx];
+}
+
+const double* Matrix::row(u32 row) const {
     if (row > m_rows) {
         return nullptr;
     }

@@ -7,7 +7,7 @@ f64 xor_propagate(f64 x, f64 y, NN& nn) {
     std::vector input = { x, y };
     Matrix m{ 1, 2, input.data() };
 
-    auto out = nn.feed_forward(std::move(m));
+    auto out = nn.feed_forward(m);
     return out.element(0);
 }
 
@@ -26,6 +26,6 @@ int main() {
     Matrix inputs{ 4, 2, inputs_data.data() };
     std::vector expected_data = { 0., 1., 1., 0. };
     Matrix expected{ 4, 1, expected_data.data() };
-    f64 cost = nn.cost(std::move(inputs), std::move(expected));
+    f64 cost = nn.cost(inputs, expected);
     std::println("Cost: {}", cost);
 }

@@ -16,20 +16,20 @@ public:
     NN(T shape);
 
     // Feed forward a row matrix
-    Matrix feed_forward(Matrix input);
+    Matrix feed_forward(const Matrix& input);
 
     // Calculate the cost of a matrix of row inputs and a matrix of row expected
     // values
-    f64 cost(Matrix inputs, Matrix expected);
+    f64 cost(const Matrix& inputs, const Matrix& expected);
 
 private:
     std::vector<Layer> m_layers;
 };
 
-Matrix NN::feed_forward(Matrix input) {
+Matrix NN::feed_forward(const Matrix& input) {
     return std::ranges::fold_left(
-        m_layers, std::move(input), [](auto m, auto& l) {
-            return l.feed_forward(std::move(m));
+        m_layers, input.clone(), [](const Matrix& m, auto& l) {
+            return l.feed_forward(m);
         }
     );
 }
@@ -43,7 +43,7 @@ NN::NN(T shape) {
     m_layers = std::ranges::to<std::vector<Layer>>(layers);
 }
 
-f64 NN::cost(Matrix inputs, Matrix expected) {
+f64 NN::cost(const Matrix& inputs, const Matrix& expected) {
     if (inputs.rows() != expected.rows()) {
         std::println(
             "Invalid call to cost with inputs of size ({}, {}) and expected of size ({}, {})",

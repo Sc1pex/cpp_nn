@@ -13,7 +13,7 @@ public:
     Layer(Matrix weights, Matrix biases);
     static Layer random(u32 in, u32 out);
 
-    Matrix feed_forward(Matrix input);
+    Matrix feed_forward(const Matrix& input);
 
     u32 in();
     u32 out();
@@ -39,7 +39,7 @@ Layer::Layer(Matrix weights, Matrix biases)
     m_out = m_weights.cols();
 }
 
-Matrix Layer::feed_forward(Matrix input) {
+Matrix Layer::feed_forward(const Matrix& input) {
     auto m = input.mult(m_weights);
     m = m.add(m_biases);
     // Apply sigmoid
