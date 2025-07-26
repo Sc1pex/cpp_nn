@@ -1,6 +1,7 @@
 module;
 
 #include <cstdlib>
+#include <functional>
 #include <memory>
 #include <print>
 
@@ -14,6 +15,8 @@ public:
     Matrix(u32 rows, u32 cols);
     Matrix(u32 rows, u32 cols, const f64 data[]);
 
+    Matrix clone() const;
+
     u32 rows() const;
     u32 cols() const;
 
@@ -22,6 +25,9 @@ public:
 
     // Returns a new matrix, or panics if there is a size missmatch
     Matrix mult(const Matrix& other) const;
+
+    void map(std::function<f64(f64 value)> f);
+    void map(std::function<f64(u32, u32, f64)> f);
 
     double element(u32 row, u32 col) const;
     double element(u32 idx) const;
@@ -66,8 +72,8 @@ u32 Matrix::cols() const {
 Matrix Matrix::add(const Matrix& other) const {
     if (this->m_cols != other.m_cols || this->m_rows != other.m_rows) {
         std::println(
-            "Called add on incompatible matricies: ({} {}) and ({} {})",
-            this->m_rows, this->m_cols, other.m_rows, other.m_cols
+            "Called add on incompatible matricies: ({} {}) and ({} {})", this->m_rows, this->m_cols,
+            other.m_rows, other.m_cols
         );
         std::abort();
     }
@@ -87,8 +93,8 @@ Matrix Matrix::add(const Matrix& other) const {
 Matrix Matrix::mult(const Matrix& other) const {
     if (this->m_cols != other.m_rows) {
         std::println(
-            "Called mult on incompatible matricies: ({} {}) and ({} {})",
-            this->m_rows, this->m_cols, other.m_rows, other.m_cols
+            "Called mult on incompatible matricies: ({} {}) and ({} {})", this->m_rows,
+            this->m_cols, other.m_rows, other.m_cols
         );
         std::abort();
     }
@@ -120,8 +126,7 @@ double Matrix::element(u32 row, u32 col) const {
 double Matrix::element(u32 idx) const {
     if (idx >= m_rows * m_cols) {
         std::println(
-            "Indexed matrix of size ({} {}) with index {}", this->m_rows,
-            this->m_cols, idx
+            "Indexed matrix of size ({} {}) with index {}", this->m_rows, this->m_cols, idx
         );
         std::abort();
     }
@@ -157,4 +162,23 @@ const double* Matrix::row(u32 row) const {
 
     u32 start_idx = row * m_cols;
     return &m_data[start_idx];
+}
+
+Matrix Matrix::clone() const {
+    return Matrix{ m_rows, m_cols, m_data.get() };
+}
+
+void Matrix::map(std::function<f64(f64)> f) {
+    for (u32 i = 0; i < m_cols * m_rows; i++) {
+        m_data[i] = f(m_data[i]);
+    }
+}
+
+void Matrix::map(std::function<f64(u32, u32, f64)> f) {
+    for (u32 i = 0; i < m_rows; i++) {
+        for (u32 j = 0; j < m_cols; j++) {
+            u32 idx = i * m_cols + j;
+            m_data[idx] = f(i, j, m_data[idx]);
+        }
+    }
 }

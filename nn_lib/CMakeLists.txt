@@ -7,6 +7,7 @@ target_sources(nn_lib
             src/lib.cpp
             src/nn.cpp
             src/layer.cpp
+            src/math.cpp
 )
 
 add_executable(test test/test.cpp)

@@ -27,5 +27,20 @@ int main() {
     std::vector expected_data = { 0., 1., 1., 0. };
     Matrix expected{ 4, 1, expected_data.data() };
     f64 cost = nn.cost(inputs, expected);
-    std::println("Cost: {}", cost);
+    std::println("cost: {}", cost);
+
+    for (int i = 0; i < 200000; i++) {
+        nn.backprop(inputs, expected, 0.01);
+        cost = nn.cost(inputs, expected);
+        if (i % 100 == 99) {
+            std::println("cost: {}", cost);
+        }
+    }
+
+    for (u32 x = 0; x <= 1; x++) {
+        for (u32 y = 0; y <= 1; y++) {
+            f64 value = xor_propagate(x, y, nn);
+            std::println("{} ^ {} = {}", x, y, value);
+        }
+    }
 }

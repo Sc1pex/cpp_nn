@@ -1,12 +1,12 @@
 module;
 
-#include <cmath>
 #include <print>
 #include <random>
 
 export module nn:layer;
 
 import :matrix;
+import :math;
 
 class Layer {
 public:
@@ -17,6 +17,11 @@ public:
 
     u32 in();
     u32 out();
+
+    const Matrix& weights() const;
+    Matrix& weights();
+    const Matrix& biases() const;
+    Matrix& biases();
 
 private:
     u32 m_in;
@@ -42,11 +47,7 @@ Layer::Layer(Matrix weights, Matrix biases)
 Matrix Layer::feed_forward(const Matrix& input) {
     auto m = input.mult(m_weights);
     m = m.add(m_biases);
-    // Apply sigmoid
-    for (u32 i = 0; i < m.cols() * m.rows(); i++) {
-        f64 sig = 1 / (1 + exp(m.element(i)));
-        m.set_element(i, sig);
-    }
+    m.map(sigmoid);
     return m;
 }
 
@@ -55,13 +56,16 @@ Layer Layer::random(u32 in, u32 out) {
     std::mt19937 gen(rd());
 
     double eps = sqrt(6. / (in + out));
-    std::uniform_real_distribution<> distrib(-eps, eps);
+    std::uniform_real_distribution<> w_distrib(-eps, eps);
+    std::uniform_real_distribution<> b_distrib(-1, 1);
 
     // Initialize weights with random values
-    // and biases with zeros
     Matrix weights{ in, out }, biases{ 1, out };
     for (u32 i = 0; i < in * out; i++) {
-        weights.set_element(i, distrib(gen));
+        weights.set_element(i, w_distrib(gen));
+    }
+    for (u32 i = 0; i < out; i++) {
+        biases.set_element(i, b_distrib(gen));
     }
 
     return Layer{ std::move(weights), std::move(biases) };
@@ -73,3 +77,19 @@ u32 Layer::in() {
 u32 Layer::out() {
     return m_out;
 };
+
+const Matrix& Layer::weights() const {
+    return m_weights;
+}
+
+const Matrix& Layer::biases() const {
+    return m_biases;
+}
+
+Matrix& Layer::weights() {
+    return m_weights;
+}
+
+Matrix& Layer::biases() {
+    return m_biases;
+}
