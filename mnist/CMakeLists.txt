@@ -8,3 +8,9 @@ target_link_libraries(mnist PUBLIC nn_lib)
 
 add_executable(cli_view src/bin/cli_view.cpp)
 target_link_libraries(cli_view PRIVATE mnist)
+add_custom_command(TARGET cli_view POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/data
+        $<TARGET_FILE_DIR:cli_view>/data
+    COMMENT "Copying assets to output directory"
+)

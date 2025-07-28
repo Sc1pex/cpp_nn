@@ -12,3 +12,6 @@ run_nn_test_exe: build
 
 run_xor: build
     ./build/nn_lib/xor
+
+run_mnist_view: build
+    cd build/mnist && ./cli_view
