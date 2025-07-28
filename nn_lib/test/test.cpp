@@ -1,10 +1,9 @@
 #include <print>
 #include <vector>
-
-import nn;
+#include "nn/nn.h"
 
 int main() {
-    std::vector<u32> shape = { 2, 5, 5, 8, 10 };
+    std::vector<uint32_t> shape = { 2, 5, 5, 8, 10 };
     NN network(shape);
 
     double input_data[] = { 0.5, -0.3 };

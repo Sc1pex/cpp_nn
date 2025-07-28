@@ -1,7 +1,6 @@
 #include <print>
 #include <vector>
-
-import nn;
+#include "nn/nn.h"
 
 f64 xor_propagate(f64 x, f64 y, NN& nn) {
     std::vector input = { x, y };
