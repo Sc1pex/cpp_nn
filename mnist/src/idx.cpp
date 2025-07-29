@@ -39,7 +39,7 @@ std::vector<Matrix> idx3_read_file(const std::string& file_path) {
                     std::println("Error reading data in file {}", file_path);
                     std::abort();
                 }
-                m.set_element(r, c, buf[0] / 255.0);
+                m.set_element(r, c, (unsigned char) buf[0] / 255.0);
             }
         }
         data.push_back(std::move(m));
@@ -75,7 +75,7 @@ std::vector<double> idx1_read_file(const std::string& file_path) {
             std::println("Error reading data in file {}", file_path);
             std::abort();
         }
-        data[i] = buf[0];
+        data[i] = (unsigned char) buf[0];
     }
 
     return data;
