@@ -14,3 +14,12 @@ add_custom_command(TARGET cli_view POST_BUILD
         $<TARGET_FILE_DIR:cli_view>/data
     COMMENT "Copying assets to output directory"
 )
+
+add_executable(mnist_train src/bin/mnist_train.cpp)
+target_link_libraries(mnist_train PRIVATE mnist)
+add_custom_command(TARGET mnist_train POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/data
+        $<TARGET_FILE_DIR:cli_view>/data
+    COMMENT "Copying assets to output directory"
+)
