@@ -13,12 +13,12 @@ void print_block(double v) {
     std::print("\x1b[38;5;{}m██\x1b[0m", c);
 }
 
-void print_random_digit(const std::vector<Matrix>& digits, int digit) {
+void print_random_digit(const std::vector<MatrixXd>& digits, int digit) {
     std::println("Label: {}", digit);
     int idx = rand() % digits.size();
     for (int r = 0; r < digits[idx].rows(); r++) {
         for (int c = 0; c < digits[idx].cols(); c++) {
-            print_block(digits[idx].element(r, c));
+            print_block(digits[idx](r, c));
         }
         std::println();
     }
@@ -30,9 +30,9 @@ int main() {
     auto label1 = idx1_read_file("data/train-labels.idx1-ubyte");
     auto label2 = idx1_read_file("data/t10k-labels.idx1-ubyte");
 
-    std::unordered_map<int, std::vector<Matrix>> data;
+    std::unordered_map<int, std::vector<MatrixXd>> data;
     for (int i = 0; i <= 9; i++) {
-        data.emplace(std::make_pair(i, std::vector<Matrix>()));
+        data.emplace(std::make_pair(i, std::vector<MatrixXd>()));
     }
     for (int i = 0; i < data1.size(); i++) {
         data[label1[i]].push_back(std::move(data1[i]));

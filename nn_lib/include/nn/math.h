@@ -7,5 +7,6 @@ inline double sigmoid(double x) {
 }
 
 inline double sigmoid_deriv(double x) {
-    return x * (1.0 - x);
+    double s = sigmoid(x);
+    return s * (1.0 - s);
 }

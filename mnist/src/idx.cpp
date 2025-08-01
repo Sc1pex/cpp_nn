@@ -4,7 +4,7 @@
 #include <ios>
 #include <print>
 
-std::vector<Matrix> idx3_read_file(const std::string& file_path) {
+std::vector<MatrixXd> idx3_read_file(const std::string& file_path) {
     std::ifstream file(file_path, std::ios::binary);
     if (!file.is_open()) {
         std::println("Failed to open file: {}", file_path);
@@ -27,11 +27,11 @@ std::vector<Matrix> idx3_read_file(const std::string& file_path) {
     rows = be32toh(rows);
     cols = be32toh(cols);
 
-    std::vector<Matrix> data;
+    std::vector<MatrixXd> data;
     data.reserve(num_images);
 
     for (int i = 0; i < num_images; i++) {
-        Matrix m(rows, cols);
+        MatrixXd m(rows, cols);
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 file.read(buf, 1);
@@ -39,7 +39,7 @@ std::vector<Matrix> idx3_read_file(const std::string& file_path) {
                     std::println("Error reading data in file {}", file_path);
                     std::abort();
                 }
-                m.set_element(r, c, (unsigned char) buf[0] / 255.0);
+                m(r, c) = (unsigned char) buf[0] / 255.0;
             }
         }
         data.push_back(std::move(m));

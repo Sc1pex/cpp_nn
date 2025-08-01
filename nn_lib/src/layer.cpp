@@ -3,7 +3,7 @@
 #include <random>
 #include "nn/math.h"
 
-Layer::Layer(Matrix weights, Matrix biases)
+Layer::Layer(MatrixXd weights, MatrixXd biases)
 : m_weights(std::move(weights)), m_biases(std::move(biases)) {
     if (m_biases.rows() != 1 || m_weights.cols() != m_biases.cols()) {
         std::println(
@@ -17,14 +17,14 @@ Layer::Layer(Matrix weights, Matrix biases)
     m_out = m_weights.cols();
 }
 
-Matrix Layer::feed_forward(const Matrix& input) {
-    auto m = input.mult(m_weights);
-    m = m.add(m_biases);
-    m.map(sigmoid);
-    return m;
+MatrixXd Layer::feed_forward(const MatrixXd& input) {
+    auto m = input * m_weights + m_biases;
+    return m.unaryExpr([](double v) {
+        return sigmoid(v);
+    });
 }
 
-Layer Layer::random(u32 in, u32 out) {
+Layer Layer::random(int in, int out) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
@@ -33,36 +33,38 @@ Layer Layer::random(u32 in, u32 out) {
     std::uniform_real_distribution<> b_distrib(-1, 1);
 
     // Initialize weights with random values
-    Matrix weights{ in, out }, biases{ 1, out };
-    for (u32 i = 0; i < in * out; i++) {
-        weights.set_element(i, w_distrib(gen));
+    MatrixXd weights{ in, out }, biases{ 1, out };
+    for (int i = 0; i < in; i++) {
+        for (int j = 0; j < out; j++) {
+            weights(i, j) = w_distrib(gen);
+        }
     }
-    for (u32 i = 0; i < out; i++) {
-        biases.set_element(i, b_distrib(gen));
+    for (int i = 0; i < out; i++) {
+        biases(0, i) = b_distrib(gen);
     }
 
     return Layer{ std::move(weights), std::move(biases) };
 }
 
-u32 Layer::in() {
+int Layer::in() {
     return m_in;
 }
-u32 Layer::out() {
+int Layer::out() {
     return m_out;
 };
 
-const Matrix& Layer::weights() const {
+const MatrixXd& Layer::weights() const {
     return m_weights;
 }
 
-const Matrix& Layer::biases() const {
+const MatrixXd& Layer::biases() const {
     return m_biases;
 }
 
-Matrix& Layer::weights() {
+MatrixXd& Layer::weights() {
     return m_weights;
 }
 
-Matrix& Layer::biases() {
+MatrixXd& Layer::biases() {
     return m_biases;
 }

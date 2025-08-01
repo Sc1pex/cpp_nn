@@ -15,20 +15,20 @@ public:
     }
 
     // Feed forward a row matrix
-    Matrix feed_forward(const Matrix& input);
+    MatrixXd feed_forward(const MatrixXd& input);
 
     // Calculate the cost of a matrix of row inputs and a matrix of row expected
     // values
-    f64 cost(const Matrix& inputs, const Matrix& expected);
+    double cost(const MatrixXd& inputs, const MatrixXd& expected);
 
-    void backprop(const Matrix& inputs, const Matrix& expected, f64 learn_rate);
-    std::pair<std::vector<Matrix>, std::vector<Matrix>>
-        compute_gradients(const Matrix& inputs, const Matrix& expected);
+    void backprop(const MatrixXd& inputs, const MatrixXd& expected, double learn_rate);
+    std::pair<std::vector<MatrixXd>, std::vector<MatrixXd>>
+        compute_gradients(const MatrixXd& inputs, const MatrixXd& expected);
 
 private:
     void apply_gradients(
-        const std::vector<Matrix>& weight_grads, const std::vector<Matrix>& bias_grads,
-        f64 learn_rate, f64 batch_size
+        const std::vector<MatrixXd>& weight_grads, const std::vector<MatrixXd>& bias_grads,
+        double learn_rate, double batch_size
     );
 
 private:

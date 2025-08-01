@@ -4,13 +4,13 @@
 #include <vector>
 #include "nn/math.h"
 
-Matrix NN::feed_forward(const Matrix& input) {
-    return std::ranges::fold_left(m_layers, input.clone(), [](const Matrix& m, auto& l) {
+MatrixXd NN::feed_forward(const MatrixXd& input) {
+    return std::ranges::fold_left(m_layers, input, [](const MatrixXd& m, auto& l) {
         return l.feed_forward(m);
     });
 }
 
-f64 NN::cost(const Matrix& inputs, const Matrix& expected) {
+double NN::cost(const MatrixXd& inputs, const MatrixXd& expected) {
     if (inputs.rows() != expected.rows()) {
         std::println(
             "Invalid call to cost with inputs of size ({}, {}) and expected of size ({}, {})",
@@ -33,87 +33,71 @@ f64 NN::cost(const Matrix& inputs, const Matrix& expected) {
         std::abort();
     }
 
-    f64 cost = 0.;
+    double cost = 0.;
 
-    for (u32 r = 0; r < inputs.rows(); r++) {
-        Matrix inp{ 1, inputs.cols(), inputs.row(r) };
-        Matrix out = feed_forward(std::move(inp));
+    for (int r = 0; r < inputs.rows(); r++) {
+        MatrixXd inp = inputs.row(r);
+        MatrixXd out = feed_forward(inp);
 
-        for (u32 c = 0; c < out.cols(); c++) {
-            f64 diff = out.element(0, c) - expected.element(r, c);
-            cost += diff * diff;
-        }
+        MatrixXd diff = out.row(0) - expected.row(r);
+        // std::println("Cost for sample {}: {}", r, diff.squaredNorm());
+        cost += diff.squaredNorm();
     }
 
     return cost / inputs.rows();
 }
 
-void NN::backprop(const Matrix& inputs, const Matrix& expected, f64 learn_rate) {
+void NN::backprop(const MatrixXd& inputs, const MatrixXd& expected, double learn_rate) {
     auto [weight_grads, bias_grads] = compute_gradients(inputs, expected);
     apply_gradients(weight_grads, bias_grads, learn_rate, inputs.rows());
 }
 
-std::pair<std::vector<Matrix>, std::vector<Matrix>>
-    NN::compute_gradients(const Matrix& inputs, const Matrix& expected) {
-    std::vector<Matrix> weight_gradients, bias_gradients;
+std::pair<std::vector<MatrixXd>, std::vector<MatrixXd>>
+    NN::compute_gradients(const MatrixXd& inputs, const MatrixXd& expected) {
+    std::vector<MatrixXd> weight_gradients, bias_gradients;
 
     for (auto& l : m_layers) {
         weight_gradients.emplace_back(l.weights().rows(), l.weights().cols());
         bias_gradients.emplace_back(1, l.biases().cols());
     }
 
-    for (u32 sample = 0; sample < inputs.rows(); sample++) {
-        const auto* inp_data = inputs.row(sample);
-        Matrix activation{ 1, inputs.cols(), inp_data };
+    for (int sample = 0; sample < inputs.rows(); sample++) {
+        MatrixXd activation = inputs.row(sample);
 
-        std::vector<Matrix> activations, zs;
-        activations.push_back(activation.clone());
+        std::vector<MatrixXd> activations, zs;
+        activations.push_back(activation);
 
         // Feed forward
         for (auto& l : m_layers) {
-            activation = activation.mult(l.weights());
-            activation = activation.add(l.biases());
-            zs.push_back(activation.clone());
-
-            activation.map(sigmoid);
-            activations.push_back(activation.clone());
+            MatrixXd z = activation * l.weights() + l.biases();
+            zs.push_back(z);
+            activation = z.unaryExpr([](double v) {
+                return sigmoid(v);
+            });
+            activations.push_back(activation);
         }
 
         // Calculate output error
-        Matrix error{ 1, expected.cols() };
-        error.map([&](u32, u32 j, f64 v) {
-            f64 diff = activation.element(0, j) - expected.element(sample, j);
-            return diff * sigmoid_deriv(activation.element(0, j));
-        });
+        MatrixXd output = activations.back();
+        MatrixXd expected_output = expected.row(sample);
+        MatrixXd output_error = output - expected_output;
+        output_error = output_error.cwiseProduct(output.unaryExpr([](double v) {
+            return sigmoid_deriv(v);
+        }));
 
         // Backward pass
         for (int layer_idx = m_layers.size() - 1; layer_idx >= 0; layer_idx--) {
-            // Calculate weight gradients
-            auto& prev_activ = activations[layer_idx];
-            weight_gradients[layer_idx].map([&](u32 i, u32 j, f64 wg) {
-                f64 grad = prev_activ.element(0, i) * error.element(0, j);
-                return wg + grad;
-            });
-
-            // Calculate bias gradients
-            bias_gradients[layer_idx].map([&](u32, u32 j, f64 wg) {
-                f64 grad = error.element(0, j);
-                return wg + grad;
-            });
+            weight_gradients[layer_idx] += activations[layer_idx].transpose() * output_error;
+            bias_gradients[layer_idx] += output_error;
 
             // Propagate error
             if (layer_idx > 0) {
-                Matrix new_error{ 1, m_layers[layer_idx].weights().rows() };
-                for (u32 i = 0; i < new_error.cols(); i++) {
-                    f64 error_sum = 0.;
-                    for (u32 j = 0; j < error.cols(); j++) {
-                        error_sum +=
-                            m_layers[layer_idx].weights().element(i, j) * error.element(0, j);
-                    }
-                    f64 err = error_sum * sigmoid_deriv(activations[layer_idx].element(0, i));
-                    new_error.set_element(0, i, err);
-                }
-                error = std::move(new_error);
+                MatrixXd weights = m_layers[layer_idx].weights();
+                output_error = output_error * weights.transpose();
+                output_error =
+                    output_error.cwiseProduct(activations[layer_idx].unaryExpr([](double v) {
+                        return sigmoid_deriv(v);
+                    }));
             }
         }
     }
@@ -122,20 +106,11 @@ std::pair<std::vector<Matrix>, std::vector<Matrix>>
 }
 
 void NN::apply_gradients(
-    const std::vector<Matrix>& weight_grads, const std::vector<Matrix>& bias_grads, f64 learn_rate,
-    f64 batch_size
+    const std::vector<MatrixXd>& weight_grads, const std::vector<MatrixXd>& bias_grads,
+    double learn_rate, double batch_size
 ) {
     for (int layer_idx = 0; layer_idx < m_layers.size(); layer_idx++) {
-        // Update weights
-        m_layers[layer_idx].weights().map([&](u32 i, u32 j, f64 w) {
-            f64 avg_grad = weight_grads[layer_idx].element(i, j) / batch_size;
-            return w - learn_rate * avg_grad;
-        });
-
-        // Update biases
-        m_layers[layer_idx].biases().map([&](u32 i, u32 j, f64 b) {
-            f64 avg_grad = bias_grads[layer_idx].element(i, j) / batch_size;
-            return b - learn_rate * avg_grad;
-        });
+        m_layers[layer_idx].weights() -= (learn_rate / batch_size) * weight_grads[layer_idx];
+        m_layers[layer_idx].biases() -= (learn_rate / batch_size) * bias_grads[layer_idx];
     }
 }

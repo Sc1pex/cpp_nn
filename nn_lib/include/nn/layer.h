@@ -1,25 +1,28 @@
 #pragma once
 
-#include "nn/matrix.h"
+// #include "nn/matrix.h"
+#include <Eigen/Core>
+
+using Eigen::MatrixXd;
 
 class Layer {
 public:
-    Layer(Matrix weights, Matrix biases);
-    static Layer random(u32 in, u32 out);
+    Layer(MatrixXd weights, MatrixXd biases);
+    static Layer random(int in, int out);
 
-    Matrix feed_forward(const Matrix& input);
+    MatrixXd feed_forward(const MatrixXd& input);
 
-    u32 in();
-    u32 out();
+    int in();
+    int out();
 
-    const Matrix& weights() const;
-    Matrix& weights();
-    const Matrix& biases() const;
-    Matrix& biases();
+    const MatrixXd& weights() const;
+    MatrixXd& weights();
+    const MatrixXd& biases() const;
+    MatrixXd& biases();
 
 private:
-    u32 m_in;
-    u32 m_out;
-    Matrix m_weights;
-    Matrix m_biases;
+    int m_in;
+    int m_out;
+    MatrixXd m_weights;
+    MatrixXd m_biases;
 };
