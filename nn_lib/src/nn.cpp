@@ -81,7 +81,7 @@ std::pair<std::vector<MatrixXd>, std::vector<MatrixXd>>
         MatrixXd output = activations.back();
         MatrixXd expected_output = expected.row(sample);
         MatrixXd output_error = output - expected_output;
-        output_error = output_error.cwiseProduct(output.unaryExpr([](double v) {
+        output_error = output_error.cwiseProduct(zs.back().unaryExpr([](double v) {
             return sigmoid_deriv(v);
         }));
 
@@ -94,10 +94,9 @@ std::pair<std::vector<MatrixXd>, std::vector<MatrixXd>>
             if (layer_idx > 0) {
                 MatrixXd weights = m_layers[layer_idx].weights();
                 output_error = output_error * weights.transpose();
-                output_error =
-                    output_error.cwiseProduct(activations[layer_idx].unaryExpr([](double v) {
-                        return sigmoid_deriv(v);
-                    }));
+                output_error = output_error.cwiseProduct(zs[layer_idx - 1].unaryExpr([](double v) {
+                    return sigmoid_deriv(v);
+                }));
             }
         }
     }

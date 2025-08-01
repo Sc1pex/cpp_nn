@@ -18,8 +18,10 @@ int main() {
     MatrixXd all_inputs{ (data1.size() + data2.size()), data_dim };
     MatrixXd all_labels{ (data1.size() + data2.size()), 10 };
     for (auto [i, v] : std::views::enumerate(data1)) {
-        for (int k = 0; k < data_dim; k++) {
-            all_inputs(i, k) = v(k);
+        for (int r = 0; r < v.rows(); r++) {
+            for (int c = 0; c < v.cols(); c++) {
+                all_inputs(i, r * v.cols() + c) = v(r, c);
+            }
         }
         all_labels(i, (int) label1[i]) = 1.;
     }
@@ -40,10 +42,10 @@ int main() {
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    const int batch_size = 10;
-    int training_loops = 1000;
+    const int batch_size = 50;
+    int epochs = 30;
 
-    while (training_loops--) {
+    while (epochs--) {
         std::shuffle(batch_idxs.begin(), batch_idxs.end(), gen);
         int backprop_iterations = 0;
         for (int k = 0; k < batch_idxs.size() / batch_size; k++) {
