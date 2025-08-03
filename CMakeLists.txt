@@ -16,5 +16,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Eigen3)
 
-add_subdirectory(nn_lib)
-add_subdirectory(mnist)
+add_library(nnet STATIC)
+target_include_directories(nnet PUBLIC nnet/include)
+target_sources(nnet 
+    PUBLIC 
+)
+target_link_libraries(nnet PUBLIC Eigen3::Eigen)
