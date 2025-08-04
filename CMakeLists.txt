@@ -20,5 +20,13 @@ add_library(nnet STATIC)
 target_include_directories(nnet PUBLIC nnet/include)
 target_sources(nnet 
     PUBLIC 
+        nnet/src/nn.cpp
 )
 target_link_libraries(nnet PUBLIC Eigen3::Eigen)
+
+add_executable(xor_test)
+target_sources(xor_test
+    PUBLIC 
+        nnet/bin/xor_test.cpp
+)
+target_link_libraries(xor_test PUBLIC nnet)

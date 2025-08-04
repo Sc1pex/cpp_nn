@@ -7,5 +7,8 @@ setup:
 build:
     cmake --build build
 
-build-release:
+build_release:
     cmake --build build --config Release
+
+run_xor: build_release
+    ./build/xor_test
