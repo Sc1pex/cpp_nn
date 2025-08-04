@@ -21,6 +21,7 @@ target_include_directories(nnet PUBLIC nnet/include)
 target_sources(nnet 
     PUBLIC 
         nnet/src/nn.cpp
+        nnet/src/idx.cpp
 )
 target_link_libraries(nnet PUBLIC Eigen3::Eigen)
 
@@ -30,3 +31,10 @@ target_sources(xor_test
         nnet/bin/xor_test.cpp
 )
 target_link_libraries(xor_test PUBLIC nnet)
+
+add_executable(mnist_cli)
+target_sources(mnist_cli
+    PUBLIC 
+        nnet/bin/mnist_cli.cpp
+)
+target_link_libraries(mnist_cli PUBLIC nnet)

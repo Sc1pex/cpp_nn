@@ -19,9 +19,10 @@ public:
         backprop(const MatrixXd& input, const MatrixXd& target);
 
     // Returns the gradients of the weights and biases for a batch of inputs and targets
-    template<std::ranges::range Iter>
+    template<std::ranges::input_range InputIter, std::ranges::input_range TargetIter>
+        requires std::ranges::sized_range<InputIter>
     std::vector<std::pair<MatrixXd, MatrixXd>>
-        backprop_batch(const Iter& inputs, const Iter& targets) {
+        backprop_batch(const InputIter& inputs, const TargetIter& targets) {
         std::vector<std::pair<MatrixXd, MatrixXd>> gradients(m_weights.size());
         for (auto [i, grad] : std::views::enumerate(gradients)) {
             grad.first = MatrixXd::Zero(m_weights[i].rows(), m_weights[i].cols());
@@ -39,8 +40,8 @@ public:
 
         // Average the gradients over the batch
         for (auto& grad : gradients) {
-            grad.first /= inputs.size();
-            grad.second /= inputs.size();
+            grad.first /= std::ranges::size(inputs);
+            grad.second /= std::ranges::size(inputs);
         }
 
         return gradients;
@@ -50,14 +51,15 @@ public:
         const std::vector<std::pair<MatrixXd, MatrixXd>>& gradients, double learning_rate
     );
 
-    template<std::ranges::range Iter>
-    double cost(const Iter& inputs, const Iter& targets) {
+    template<std::ranges::input_range InputIter, std::ranges::input_range TargetIter>
+        requires std::ranges::sized_range<InputIter>
+    double cost(const InputIter& inputs, const TargetIter& targets) {
         double total_cost = 0.0;
         for (const auto& [input, target] : std::views::zip(inputs, targets)) {
             MatrixXd output = feed_forward(input);
             total_cost += (output - target).squaredNorm();
         }
-        return total_cost / inputs.size();
+        return total_cost / std::ranges::size(inputs);
     }
 
 private:

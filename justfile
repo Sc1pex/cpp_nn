@@ -13,6 +13,9 @@ build_release:
 run_xor: build_release
     ./build/xor_test
 
+run_mnist_cli: build_release
+    ./build/mnist_cli
+
 download_mnist:
     #!/usr/bin/bash
     set -euo pipefail
