@@ -22,6 +22,7 @@ target_sources(nnet
     PUBLIC 
         nnet/src/nn.cpp
         nnet/src/idx.cpp
+        nnet/src/train_pool.cpp
 )
 target_link_libraries(nnet PUBLIC Eigen3::Eigen)
 

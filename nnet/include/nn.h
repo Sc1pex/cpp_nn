@@ -14,6 +14,8 @@ public:
 
     MatrixXd feed_forward(const MatrixXd& input);
 
+    int num_layers() const;
+
     // Retunrs the gradients of the weights and biases for a single input-target pair
     std::vector<std::pair<MatrixXd, MatrixXd>>
         backprop(const MatrixXd& input, const MatrixXd& target);

@@ -89,4 +89,8 @@ void NN::apply_gradients(
     }
 }
 
+int NN::num_layers() const {
+    return m_weights.size();
+}
+
 }

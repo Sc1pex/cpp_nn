@@ -1,9 +1,7 @@
-#include <numeric>
 #include <print>
-#include <random>
-#include <ranges>
 #include "idx.h"
 #include "nn.h"
+#include "train_pool.h"
 
 struct MnistData {
     std::vector<nnet::MatrixXd> train_inputs;
@@ -66,40 +64,21 @@ int main() {
     std::vector shape = { 28 * 28, 16, 16, 10 };
     nnet::NN nn = nnet::NN::init_random(shape);
 
-    std::vector<int> batch_idxs(data.train_inputs.size());
-    std::iota(batch_idxs.begin(), batch_idxs.end(), 0);
+    nnet::TrainPool pool(nn, data.train_inputs, data.train_labels, 20);
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    const int batch_size = 50;
+    const int batch_size = 100;
     const double learning_rate = 0.01;
-    int epochs = 30;
+    int epochs = 50;
+
+    double cost = nn.cost(data.test_inputs, data.test_labels);
 
     while (epochs--) {
-        std::shuffle(batch_idxs.begin(), batch_idxs.end(), gen);
-        int backprop_iterations = 0;
-        for (int k = 0; k < batch_idxs.size() / batch_size; k++) {
-            auto batch_inputs = batch_idxs | std::views::drop(k * batch_size)
-                                | std::views::take(batch_size)
-                                | std::views::transform([&](int idx) {
-                                      return data.train_inputs[idx];
-                                  });
-            auto batch_labels = batch_idxs | std::views::drop(k * batch_size)
-                                | std::views::take(batch_size)
-                                | std::views::transform([&](int idx) {
-                                      return data.train_labels[idx];
-                                  });
-
-            auto gradients = nn.backprop_batch(batch_inputs, batch_labels);
-            nn.apply_gradients(gradients, learning_rate);
-
-            backprop_iterations++;
+        pool.train(batch_size, learning_rate, [&](int backprop_iterations) {
             if (backprop_iterations % 100 == 0) {
-                double cost = nn.cost(batch_inputs, batch_labels);
+                double cost = nn.cost(data.test_inputs, data.test_labels);
                 std::println("Backprop iteration: {}, batch cost: {}", backprop_iterations, cost);
             }
-        }
-        std::println("Training loop done");
-        std::println("Total cost: {}", nn.cost(data.test_inputs, data.test_labels));
+        });
+        std::println("Epoch completed");
     }
 }
