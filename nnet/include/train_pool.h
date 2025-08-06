@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <functional>
 #include <thread>
 #include "channel.h"
 #include "nn.h"
@@ -13,7 +12,7 @@ struct TrainState {
     const std::vector<MatrixXd>& inputs;
     const std::vector<MatrixXd>& targets;
 
-    int batch_size = 0;
+    int batch_size;
     int backprop_iterations = 0;
     std::vector<int> batch_idxs;
 
@@ -24,11 +23,10 @@ class TrainPool {
 public:
     TrainPool(
         NN& nn, const std::vector<MatrixXd>& inputs, const std::vector<MatrixXd>& targets,
-        int threads
+        int threads, int batch_size
     );
 
-    void
-        train(int batch_size, double learning_rate, std::function<void(int batch_idx)> on_comlpete);
+    void train(double learning_rate);
 
 private:
     TrainState m_state;

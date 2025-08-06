@@ -57,28 +57,20 @@ MnistData read_mnist_data() {
 
 int main() {
     auto data = read_mnist_data();
-    std::println(
-        "Read {} training inputs, {} test inputs", data.train_inputs.size(), data.test_inputs.size()
-    );
 
     std::vector shape = { 28 * 28, 16, 16, 10 };
     nnet::NN nn = nnet::NN::init_random(shape);
 
-    nnet::TrainPool pool(nn, data.train_inputs, data.train_labels, 20);
-
     const int batch_size = 100;
     const double learning_rate = 0.01;
-    int epochs = 50;
+    int epochs = 1;
+
+    nnet::TrainPool pool(nn, data.train_inputs, data.train_labels, 20, batch_size);
 
     double cost = nn.cost(data.test_inputs, data.test_labels);
 
     while (epochs--) {
-        pool.train(batch_size, learning_rate, [&](int backprop_iterations) {
-            if (backprop_iterations % 100 == 0) {
-                double cost = nn.cost(data.test_inputs, data.test_labels);
-                std::println("Backprop iteration: {}, batch cost: {}", backprop_iterations, cost);
-            }
-        });
-        std::println("Epoch completed");
+        pool.train(learning_rate);
     }
+    std::println("{}", nn.cost(data.test_inputs, data.test_labels));
 }
