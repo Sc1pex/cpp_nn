@@ -40,3 +40,41 @@ download_mnist:
     for file in "${FILES[@]}"; do
         gunzip "data/$file"
     done
+
+becnhmark_mnist_train: build_release
+    #!/bin/bash
+
+    output_file=$(mktemp)
+
+    hyperfine \
+        --shell bash \
+        "./build/mnist_cli >> $output_file" \
+        --runs 10
+
+    # Extract the numbers from all runs
+    numbers=$(grep -o '[0-9]\+\(\.[0-9]\+\)\?' "$output_file")
+    # Calculate statistics using awk
+    value_stats=$(echo "$numbers" | awk '
+    {
+        sum += $1
+        values[NR] = $1
+        count = NR
+    }
+    END {
+        if (count > 0) {
+            mean = sum / count
+            # Calculate variance for standard deviation
+            for (i = 1; i <= count; i++) {
+                variance += (values[i] - mean) ^ 2
+            }
+            stddev = sqrt(variance / count)
+            printf "Mean value: %.6f ± %.6f", mean, stddev
+        }
+    }')
+
+    # Display value statistics
+    echo -e "\n=== Output Value Statistics ==="
+    echo "$value_stats"
+
+    # Cleanup
+    rm "$output_file"
