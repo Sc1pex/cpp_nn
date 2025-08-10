@@ -1,33 +1,45 @@
 #include "train_pool.h"
 #include <numeric>
+#include <print>
 #include <random>
 #include <ranges>
 
 namespace nnet {
 
-void thread(TrainState& state, int id, Receiver<int> start, Sender<int> done) {
+void thread(TrainState& state, Receiver<int> start, Sender<int> done) {
     std::vector<std::reference_wrapper<const MatrixXd>> batch_inputs;
     std::vector<std::reference_wrapper<const MatrixXd>> batch_targets;
     batch_inputs.reserve(state.batch_size);
     batch_targets.reserve(state.batch_size);
 
-    while (auto batch_start_idx = start.recv()) {
-        int start_idx = *batch_start_idx;
+    while (auto chan_thread_idx = start.recv()) {
+        int thread_idx = *chan_thread_idx;
 
-        // Clear and populate with references (no copying)
-        batch_inputs.clear();
-        batch_targets.clear();
+        int start_idx = thread_idx * state.batch_size;
+        while (start_idx < state.batch_idxs.size()) {
+            int current_batch_size =
+                std::min(state.batch_size, static_cast<int>(state.batch_idxs.size()) - start_idx);
 
-        for (int i = 0; i < state.batch_size; ++i) {
-            int idx = start_idx + i;
-            batch_inputs.emplace_back(state.inputs[state.batch_idxs[idx]]);
-            batch_targets.emplace_back(state.targets[state.batch_idxs[idx]]);
+            batch_inputs.clear();
+            batch_targets.clear();
+
+            for (int i = 0; i < current_batch_size; ++i) {
+                int idx = start_idx + i;
+                batch_inputs.emplace_back(state.inputs[state.batch_idxs[idx]]);
+                batch_targets.emplace_back(state.targets[state.batch_idxs[idx]]);
+            }
+
+            auto gradients = state.nn.backprop_batch(batch_inputs, batch_targets);
+
+            {
+                std::lock_guard<std::mutex> lock(state.nn_mutex);
+                state.nn.apply_gradients(gradients, state.learning_rate);
+            }
+
+            start_idx += state.batch_stride;
         }
 
-        auto gradients = state.nn.backprop_batch(batch_inputs, batch_targets);
-        state.gradients[id] = std::move(gradients);
-
-        done.send(id);
+        done.send(thread_idx);
     }
 }
 
@@ -38,8 +50,9 @@ TrainPool::TrainPool(
 : m_state{ nn, inputs, targets } {
     m_state.batch_idxs = std::vector<int>(inputs.size());
     std::iota(m_state.batch_idxs.begin(), m_state.batch_idxs.end(), 0);
-    m_state.gradients = std::vector<std::vector<std::pair<MatrixXd, MatrixXd>>>(threads);
+
     m_state.batch_size = batch_size;
+    m_state.batch_stride = threads * batch_size;
 
     for (int i = 0; i < threads; ++i) {
         auto [tx_start, rx_start] = channel<int>();
@@ -47,8 +60,8 @@ TrainPool::TrainPool(
         m_send_start.push_back(std::move(tx_start));
         m_recv_done.push_back(std::move(rx_done));
 
-        m_threads.emplace_back([this, rx_start, tx_done, i]() {
-            thread(m_state, i, std::move(rx_start), std::move(tx_done));
+        m_threads.emplace_back([this, rx_start, tx_done]() {
+            thread(m_state, std::move(rx_start), std::move(tx_done));
         });
     }
 }
@@ -56,35 +69,18 @@ TrainPool::TrainPool(
 void TrainPool::train(double learning_rate) {
     std::random_device rd;
     std::mt19937 gen(rd());
-
     std::shuffle(m_state.batch_idxs.begin(), m_state.batch_idxs.end(), gen);
-    for (int k = 0; k < m_state.batch_idxs.size() / m_state.batch_size; k += m_threads.size()) {
-        // Start processing batches in parallel
-        for (int i = 0; i < m_threads.size(); ++i) {
-            m_send_start[i].send((k + i) * m_state.batch_size);
-        }
 
-        // Wait for all threads to finish processing the batch
-        for (int i = 0; i < m_threads.size(); ++i) {
-            int thread_id = m_recv_done[i].recv().value();
-        }
+    m_state.learning_rate = learning_rate;
 
-        // Aggregate gradients from all threads
-        auto gradients = std::ranges::fold_left(
-            m_state.gradients, std::vector<std::pair<MatrixXd, MatrixXd>>{},
-            [](auto acc, const auto& grad) {
-                if (acc.empty())
-                    return grad;
-                for (size_t i = 0; i < acc.size(); ++i) {
-                    acc[i].first += grad[i].first;
-                    acc[i].second += grad[i].second;
-                }
-                return acc;
-            }
-        );
+    // Start processing batches in parallel
+    for (int i = 0; i < m_threads.size(); ++i) {
+        m_send_start[i].send(i);
+    }
 
-        m_state.nn.apply_gradients(gradients, learning_rate);
+    // Wait for all threads to finish processing the batch
+    for (int i = 0; i < m_threads.size(); ++i) {
+        int thread_id = m_recv_done[i].recv().value();
     }
 }
-
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <mutex>
 #include <thread>
 #include "channel.h"
 #include "nn.h"
@@ -12,11 +13,12 @@ struct TrainState {
     const std::vector<MatrixXd>& inputs;
     const std::vector<MatrixXd>& targets;
 
-    int batch_size;
-    int backprop_iterations = 0;
     std::vector<int> batch_idxs;
+    double learning_rate;
+    int batch_size;
+    int batch_stride;
 
-    std::vector<std::vector<std::pair<MatrixXd, MatrixXd>>> gradients;
+    std::mutex nn_mutex;
 };
 
 class TrainPool {
