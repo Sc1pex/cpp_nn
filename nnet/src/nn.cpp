@@ -75,9 +75,7 @@ void NN::backprop(const MatrixXd& input, const MatrixXd& target, Gradients& grad
     }
 }
 
-void NN::apply_gradients(
-    const std::vector<std::pair<MatrixXd, MatrixXd>>& gradients, double learning_rate
-) {
+void NN::apply_gradients(const Gradients& gradients, double learning_rate) {
     for (size_t i = 0; i < m_weights.size(); ++i) {
         m_weights[i] -= learning_rate * gradients[i].first;
         m_biases[i] -= learning_rate * gradients[i].second;

@@ -24,8 +24,7 @@ public:
     // Returns the gradients of the weights and biases for a batch of inputs and targets
     template<std::ranges::input_range InputIter, std::ranges::input_range TargetIter>
         requires std::ranges::sized_range<InputIter>
-    std::vector<std::pair<MatrixXd, MatrixXd>>
-        backprop_batch(const InputIter& inputs, const TargetIter& targets) {
+    Gradients backprop_batch(const InputIter& inputs, const TargetIter& targets) {
         Gradients gradients(m_weights.size());
         for (auto [i, grad] : std::views::enumerate(gradients)) {
             grad.first = MatrixXd::Zero(m_weights[i].rows(), m_weights[i].cols());
@@ -45,9 +44,7 @@ public:
         return gradients;
     }
 
-    void apply_gradients(
-        const std::vector<std::pair<MatrixXd, MatrixXd>>& gradients, double learning_rate
-    );
+    void apply_gradients(const Gradients& gradients, double learning_rate);
 
     template<std::ranges::input_range InputIter, std::ranges::input_range TargetIter>
         requires std::ranges::sized_range<InputIter>
