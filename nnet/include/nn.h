@@ -8,6 +8,8 @@ namespace nnet {
 
 using Eigen::MatrixXd;
 
+using Gradients = std::vector<std::pair<MatrixXd, MatrixXd>>;
+
 class NN {
 public:
     static NN init_random(const std::vector<int>& shape);
@@ -17,27 +19,21 @@ public:
     int num_layers() const;
 
     // Retunrs the gradients of the weights and biases for a single input-target pair
-    std::vector<std::pair<MatrixXd, MatrixXd>>
-        backprop(const MatrixXd& input, const MatrixXd& target);
+    void backprop(const MatrixXd& input, const MatrixXd& target, Gradients& gradients);
 
     // Returns the gradients of the weights and biases for a batch of inputs and targets
     template<std::ranges::input_range InputIter, std::ranges::input_range TargetIter>
         requires std::ranges::sized_range<InputIter>
     std::vector<std::pair<MatrixXd, MatrixXd>>
         backprop_batch(const InputIter& inputs, const TargetIter& targets) {
-        std::vector<std::pair<MatrixXd, MatrixXd>> gradients(m_weights.size());
+        Gradients gradients(m_weights.size());
         for (auto [i, grad] : std::views::enumerate(gradients)) {
             grad.first = MatrixXd::Zero(m_weights[i].rows(), m_weights[i].cols());
             grad.second = MatrixXd::Zero(m_biases[i].rows(), m_biases[i].cols());
         }
 
         for (const auto& [input, target] : std::views::zip(inputs, targets)) {
-            auto batch_gradients = backprop(input, target);
-
-            for (size_t i = 0; i < m_weights.size(); ++i) {
-                gradients[i].first += batch_gradients[i].first;
-                gradients[i].second += batch_gradients[i].second;
-            }
+            backprop(input, target, gradients);
         }
 
         // Average the gradients over the batch

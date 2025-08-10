@@ -6,20 +6,26 @@
 namespace nnet {
 
 void thread(TrainState& state, int id, Receiver<int> start, Sender<int> done) {
-    std::vector<MatrixXd> batch_inputs(state.batch_size);
-    std::vector<MatrixXd> batch_targets(state.batch_size);
+    std::vector<std::reference_wrapper<const MatrixXd>> batch_inputs;
+    std::vector<std::reference_wrapper<const MatrixXd>> batch_targets;
+    batch_inputs.reserve(state.batch_size);
+    batch_targets.reserve(state.batch_size);
 
     while (auto batch_start_idx = start.recv()) {
         int start_idx = *batch_start_idx;
 
+        // Clear and populate with references (no copying)
+        batch_inputs.clear();
+        batch_targets.clear();
+
         for (int i = 0; i < state.batch_size; ++i) {
             int idx = start_idx + i;
-            batch_inputs[i] = state.inputs[state.batch_idxs[idx]];
-            batch_targets[i] = state.targets[state.batch_idxs[idx]];
+            batch_inputs.emplace_back(state.inputs[state.batch_idxs[idx]]);
+            batch_targets.emplace_back(state.targets[state.batch_idxs[idx]]);
         }
 
         auto gradients = state.nn.backprop_batch(batch_inputs, batch_targets);
-        state.gradients[id] = gradients;
+        state.gradients[id] = std::move(gradients);
 
         done.send(id);
     }

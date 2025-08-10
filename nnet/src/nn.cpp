@@ -43,10 +43,7 @@ MatrixXd NN::feed_forward(const MatrixXd& input) {
     return output;
 }
 
-std::vector<std::pair<MatrixXd, MatrixXd>>
-    NN::backprop(const MatrixXd& input, const MatrixXd& target) {
-    std::vector<std::pair<MatrixXd, MatrixXd>> gradients(m_weights.size());
-
+void NN::backprop(const MatrixXd& input, const MatrixXd& target, Gradients& gradients_acc) {
     std::vector<MatrixXd> activations;
     std::vector<MatrixXd> zs;
 
@@ -66,18 +63,16 @@ std::vector<std::pair<MatrixXd, MatrixXd>>
     MatrixXd delta = (activations.back() - target);
     delta = delta.cwiseProduct(zs.back().unaryExpr(std::function(sigmoid_derivative)));
 
-    gradients.back().first = delta * activations[activations.size() - 2].transpose();
-    gradients.back().second = delta;
+    gradients_acc.back().first += delta * activations[activations.size() - 2].transpose();
+    gradients_acc.back().second += delta;
 
     for (int i = m_weights.size() - 2; i >= 0; --i) {
         delta = m_weights[i + 1].transpose() * delta;
         delta = delta.cwiseProduct(zs[i].unaryExpr(std::function(sigmoid_derivative)));
 
-        gradients[i].first = delta * activations[i].transpose();
-        gradients[i].second = delta;
+        gradients_acc[i].first += delta * activations[i].transpose();
+        gradients_acc[i].second += delta;
     }
-
-    return gradients;
 }
 
 void NN::apply_gradients(
