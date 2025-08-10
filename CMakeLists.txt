@@ -16,6 +16,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Eigen3)
 
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
+add_compile_definitions(EIGEN_NO_DEBUG)
+add_compile_definitions(EIGEN_DONT_PARALLELIZE)
+
 add_library(nnet STATIC)
 target_include_directories(nnet PUBLIC nnet/include)
 target_sources(nnet 
