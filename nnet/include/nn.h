@@ -3,6 +3,7 @@
 #include <Eigen/Core>
 #include <ranges>
 #include <vector>
+#include "Eigen/src/Core/Matrix.h"
 
 namespace nnet {
 
@@ -18,31 +19,8 @@ public:
 
     int num_layers() const;
 
-    // Retunrs the gradients of the weights and biases for a single input-target pair
-    void backprop(const MatrixXd& input, const MatrixXd& target, Gradients& gradients);
-
-    // Returns the gradients of the weights and biases for a batch of inputs and targets
-    template<std::ranges::input_range InputIter, std::ranges::input_range TargetIter>
-        requires std::ranges::sized_range<InputIter>
-    Gradients backprop_batch(const InputIter& inputs, const TargetIter& targets) {
-        Gradients gradients(m_weights.size());
-        for (auto [i, grad] : std::views::enumerate(gradients)) {
-            grad.first = MatrixXd::Zero(m_weights[i].rows(), m_weights[i].cols());
-            grad.second = MatrixXd::Zero(m_biases[i].rows(), m_biases[i].cols());
-        }
-
-        for (const auto& [input, target] : std::views::zip(inputs, targets)) {
-            backprop(input, target, gradients);
-        }
-
-        // Average the gradients over the batch
-        for (auto& grad : gradients) {
-            grad.first /= std::ranges::size(inputs);
-            grad.second /= std::ranges::size(inputs);
-        }
-
-        return gradients;
-    }
+    // Returns the gradients of the weights and biases for multiple inputs and targets
+    Gradients backprop_batch_matrix(const MatrixXd& inputs, const MatrixXd& targets);
 
     void apply_gradients(const Gradients& gradients, double learning_rate);
 
@@ -56,6 +34,8 @@ public:
         }
         return total_cost / std::ranges::size(inputs);
     }
+
+    double cost(const MatrixXd& inputs, const MatrixXd& targets);
 
 private:
     std::vector<MatrixXd> m_weights;

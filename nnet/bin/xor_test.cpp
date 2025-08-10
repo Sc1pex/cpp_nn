@@ -4,21 +4,15 @@
 int main() {
     nnet::NN nn = nnet::NN::init_random({ 2, 2, 1 });
 
-    std::vector<nnet::MatrixXd> inputs = { nnet::MatrixXd{ { 0 }, { 0 } },
-                                           nnet::MatrixXd{ { 0 }, { 1 } },
-                                           nnet::MatrixXd{ { 1 }, { 0 } },
-                                           nnet::MatrixXd{ { 1 }, { 1 } } };
-    std::vector<nnet::MatrixXd> targets = { nnet::MatrixXd::Constant(1, 1, 0),
-                                            nnet::MatrixXd::Constant(1, 1, 1),
-                                            nnet::MatrixXd::Constant(1, 1, 1),
-                                            nnet::MatrixXd::Constant(1, 1, 0) };
+    nnet::MatrixXd inputs{ { 0, 0 }, { 0, 1 }, { 1, 0 }, { 1, 1 } };
+    nnet::MatrixXd targets{ { 0 }, { 1 }, { 1 }, { 0 } };
 
     const double learning_rate = 0.05;
 
     auto cost = nn.cost(inputs, targets);
     int epoch = 1;
     while (cost > 0.01) {
-        auto grads = nn.backprop_batch(inputs, targets);
+        auto grads = nn.backprop_batch_matrix(inputs, targets);
         nn.apply_gradients(grads, learning_rate);
 
         cost = nn.cost(inputs, targets);
@@ -28,10 +22,10 @@ int main() {
         epoch++;
     }
 
-    for (const auto& input : inputs) {
-        auto output = nn.feed_forward(input);
+    for (int i = 0; i < inputs.rows(); ++i) {
+        auto output = nn.feed_forward(inputs.col(i));
         std::println("Output: {}x{}", output.rows(), output.cols());
-        std::println("{} ^ {} = {}", input(0, 0), input(1, 0), output(0, 0));
+        std::println("{} ^ {} = {}", inputs(0, i), inputs(1, i), output(0, 0));
     }
 
     return 0;

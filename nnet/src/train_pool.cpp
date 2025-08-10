@@ -1,17 +1,11 @@
 #include "train_pool.h"
 #include <numeric>
-#include <print>
 #include <random>
 #include <ranges>
 
 namespace nnet {
 
 void thread(TrainState& state, Receiver<int> start, Sender<int> done) {
-    std::vector<std::reference_wrapper<const MatrixXd>> batch_inputs;
-    std::vector<std::reference_wrapper<const MatrixXd>> batch_targets;
-    batch_inputs.reserve(state.batch_size);
-    batch_targets.reserve(state.batch_size);
-
     while (auto chan_thread_idx = start.recv()) {
         int thread_idx = *chan_thread_idx;
 
@@ -20,16 +14,17 @@ void thread(TrainState& state, Receiver<int> start, Sender<int> done) {
             int current_batch_size =
                 std::min(state.batch_size, static_cast<int>(state.batch_idxs.size()) - start_idx);
 
-            batch_inputs.clear();
-            batch_targets.clear();
+            MatrixXd batch_inputs{ state.inputs[0].rows(), current_batch_size };
+            MatrixXd batch_targets{ state.targets[0].rows(), current_batch_size };
 
+            // Fill the batch with inputs and targets
             for (int i = 0; i < current_batch_size; ++i) {
-                int idx = start_idx + i;
-                batch_inputs.emplace_back(state.inputs[state.batch_idxs[idx]]);
-                batch_targets.emplace_back(state.targets[state.batch_idxs[idx]]);
+                int idx = state.batch_idxs[start_idx + i];
+                batch_inputs.col(i) = state.inputs[idx];
+                batch_targets.col(i) = state.targets[idx];
             }
 
-            auto gradients = state.nn.backprop_batch(batch_inputs, batch_targets);
+            auto gradients = state.nn.backprop_batch_matrix(batch_inputs, batch_targets);
 
             {
                 std::lock_guard<std::mutex> lock(state.nn_mutex);

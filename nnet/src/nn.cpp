@@ -43,38 +43,6 @@ MatrixXd NN::feed_forward(const MatrixXd& input) {
     return output;
 }
 
-void NN::backprop(const MatrixXd& input, const MatrixXd& target, Gradients& gradients_acc) {
-    std::vector<MatrixXd> activations;
-    std::vector<MatrixXd> zs;
-
-    MatrixXd activation = input;
-    activations.push_back(activation);
-
-    // Forward pass
-    for (auto [w, b] : std::views::zip(m_weights, m_biases)) {
-        MatrixXd z = w * activation + b;
-        zs.push_back(z);
-
-        activation = z.unaryExpr(std::function(sigmoid));
-        activations.push_back(activation);
-    }
-
-    // Backward pass
-    MatrixXd delta = (activations.back() - target);
-    delta = delta.cwiseProduct(zs.back().unaryExpr(std::function(sigmoid_derivative)));
-
-    gradients_acc.back().first += delta * activations[activations.size() - 2].transpose();
-    gradients_acc.back().second += delta;
-
-    for (int i = m_weights.size() - 2; i >= 0; --i) {
-        delta = m_weights[i + 1].transpose() * delta;
-        delta = delta.cwiseProduct(zs[i].unaryExpr(std::function(sigmoid_derivative)));
-
-        gradients_acc[i].first += delta * activations[i].transpose();
-        gradients_acc[i].second += delta;
-    }
-}
-
 void NN::apply_gradients(const Gradients& gradients, double learning_rate) {
     for (size_t i = 0; i < m_weights.size(); ++i) {
         m_weights[i] -= learning_rate * gradients[i].first;
@@ -84,6 +52,52 @@ void NN::apply_gradients(const Gradients& gradients, double learning_rate) {
 
 int NN::num_layers() const {
     return m_weights.size();
+}
+
+Gradients NN::backprop_batch_matrix(const MatrixXd& inputs, const MatrixXd& targets) {
+    int batch_size = inputs.cols();
+    std::vector<MatrixXd> activations;
+    std::vector<MatrixXd> zs;
+
+    MatrixXd activation = inputs;
+    activations.push_back(activation);
+
+    // Forward pass
+    for (auto [w, b] : std::views::zip(m_weights, m_biases)) {
+        MatrixXd z = w * activation + b.replicate(1, batch_size);
+        zs.push_back(z);
+
+        activation = z.unaryExpr(std::function(sigmoid));
+        activations.push_back(activation);
+    }
+
+    // Backward pass
+    MatrixXd delta = (activations.back() - targets);
+    delta = delta.cwiseProduct(zs.back().unaryExpr(std::function(sigmoid_derivative)));
+
+    Gradients gradients(m_weights.size());
+
+    gradients.back().first = delta * activations[activations.size() - 2].transpose() / batch_size;
+    gradients.back().second = delta.rowwise().mean();
+
+    for (int i = m_weights.size() - 2; i >= 0; --i) {
+        delta = m_weights[i + 1].transpose() * delta;
+        delta = delta.cwiseProduct(zs[i].unaryExpr(std::function(sigmoid_derivative)));
+
+        gradients[i].first = delta * activations[i].transpose() / batch_size;
+        gradients[i].second = delta.rowwise().mean();
+    }
+
+    return gradients;
+}
+
+double NN::cost(const MatrixXd& inputs, const MatrixXd& targets) {
+    double total_cost = 0.0;
+    for (int i = 0; i < inputs.cols(); ++i) {
+        MatrixXd output = feed_forward(inputs.col(i));
+        total_cost += (output - targets.col(i)).squaredNorm();
+    }
+    return total_cost / inputs.cols();
 }
 
 }
