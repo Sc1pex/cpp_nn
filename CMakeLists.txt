@@ -37,9 +37,9 @@ target_sources(xor_test
 )
 target_link_libraries(xor_test PUBLIC nnet)
 
-add_executable(mnist_cli)
-target_sources(mnist_cli
+add_executable(mnist_benchmark)
+target_sources(mnist_benchmark
     PUBLIC 
-        nnet/bin/mnist_cli.cpp
+        nnet/bin/mnist_benchmark.cpp
 )
-target_link_libraries(mnist_cli PUBLIC nnet)
+target_link_libraries(mnist_benchmark PUBLIC nnet)

@@ -13,8 +13,8 @@ build_release:
 run_xor: build_release
     ./build/xor_test
 
-run_mnist_cli: build_release
-    ./build/mnist_cli
+run_mnist_benchmark: build_release
+    ./build/mnist_benchmark
 
 download_mnist:
     #!/usr/bin/bash
@@ -48,7 +48,7 @@ becnhmark_mnist_train: build_release
 
     hyperfine \
         --shell bash \
-        "./build/mnist_cli >> $output_file" \
+        "./build/mnist_benchmark >> $output_file" \
         --runs 10
 
     # Extract the numbers from all runs
