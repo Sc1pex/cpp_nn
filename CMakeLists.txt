@@ -21,3 +21,4 @@ add_compile_definitions(EIGEN_NO_DEBUG)
 add_compile_definitions(EIGEN_DONT_PARALLELIZE)
 
 add_subdirectory(nnet)
+add_subdirectory(mnist_cli)
