@@ -20,26 +20,4 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 add_compile_definitions(EIGEN_NO_DEBUG)
 add_compile_definitions(EIGEN_DONT_PARALLELIZE)
 
-add_library(nnet STATIC)
-target_include_directories(nnet PUBLIC nnet/include)
-target_sources(nnet 
-    PUBLIC 
-        nnet/src/nn.cpp
-        nnet/src/idx.cpp
-        nnet/src/train_pool.cpp
-)
-target_link_libraries(nnet PUBLIC Eigen3::Eigen)
-
-add_executable(xor_test)
-target_sources(xor_test
-    PUBLIC 
-        nnet/bin/xor_test.cpp
-)
-target_link_libraries(xor_test PUBLIC nnet)
-
-add_executable(mnist_benchmark)
-target_sources(mnist_benchmark
-    PUBLIC 
-        nnet/bin/mnist_benchmark.cpp
-)
-target_link_libraries(mnist_benchmark PUBLIC nnet)
+add_subdirectory(nnet)

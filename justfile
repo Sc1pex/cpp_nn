@@ -11,10 +11,10 @@ build_release:
     cmake --build build --config Release
 
 run_xor: build_release
-    ./build/xor_test
+    ./build/nnet/xor_test
 
 run_mnist_benchmark: build_release
-    ./build/mnist_benchmark
+    ./build/nnet/mnist_benchmark
 
 download_mnist:
     #!/usr/bin/bash
@@ -48,7 +48,7 @@ becnhmark_mnist_train: build_release
 
     hyperfine \
         --shell bash \
-        "./build/mnist_benchmark >> $output_file" \
+        "./build/nnet/mnist_benchmark >> $output_file" \
         --runs 10
 
     # Extract the numbers from all runs
