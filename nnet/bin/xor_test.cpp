@@ -4,8 +4,10 @@
 int main() {
     nnet::NN nn = nnet::NN::init_random({ 2, 2, 1 });
 
-    nnet::MatrixXd inputs{ { 0, 0 }, { 0, 1 }, { 1, 0 }, { 1, 1 } };
-    nnet::MatrixXd targets{ { 0 }, { 1 }, { 1 }, { 0 } };
+    nnet::MatrixXd inputs(2, 4);
+    inputs << 0, 0, 1, 1, 0, 1, 0, 1;
+    nnet::MatrixXd targets(1, 4);
+    targets << 0, 1, 1, 0;
 
     const double learning_rate = 0.05;
 
@@ -22,7 +24,7 @@ int main() {
         epoch++;
     }
 
-    for (int i = 0; i < inputs.rows(); ++i) {
+    for (int i = 0; i < inputs.cols(); ++i) {
         auto output = nn.feed_forward(inputs.col(i));
         std::println("Output: {}x{}", output.rows(), output.cols());
         std::println("{} ^ {} = {}", inputs(0, i), inputs(1, i), output(0, 0));
