@@ -7,14 +7,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include(FetchContent)
-FetchContent_Declare(
-    Eigen3
-    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-    GIT_TAG 3.4.0
-    GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(Eigen3)
+find_package(Eigen3 CONFIG REQUIRED)
+find_package(uvw CONFIG REQUIRED)
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 add_compile_definitions(EIGEN_NO_DEBUG)
