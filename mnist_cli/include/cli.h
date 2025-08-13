@@ -8,6 +8,7 @@ public:
     CliRead(std::shared_ptr<uvw::loop>& loop);
 
     void start();
+    void on_input(std::function<void(uvw::async_event& ev, uvw::async_handle& h)> handle);
 
 private:
     void handle_data(const uvw::data_event& event);

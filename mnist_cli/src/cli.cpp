@@ -1,4 +1,5 @@
 #include "cli.h"
+#include <memory>
 #include "key.h"
 
 template<typename... Args>
@@ -25,6 +26,12 @@ CliRead::CliRead(std::shared_ptr<uvw::loop>& loop) {
 void CliRead::start() {
     m_in->mode(uvw::tty_handle::tty_mode::RAW);
     m_in->read();
+
+    write_fmt(m_out, "> ");
+}
+
+void CliRead::on_input(std::function<void(uvw::async_event& ev, uvw::async_handle& h)> handle) {
+    m_send->on<uvw::async_event>(handle);
 }
 
 void CliRead::handle_data(const uvw::data_event& event) {
@@ -54,11 +61,19 @@ void CliRead::handle_data(const uvw::data_event& event) {
         cursor_pos = 0;
     } else if (key == Key::Special::End) {
         cursor_pos = current_line.size();
+    } else if (key == Key::Special::Enter) {
+        write_fmt(m_out, "\r\n");
+
+        m_send->data(std::make_shared<std::string>(current_line));
+        m_send->send();
+        current_line.clear();
+
+        return;
     }
 
     if (cursor_pos != current_line.size()) {
-        write_fmt(m_out, "\r\033[K{}\033[{}D", current_line, current_line.size() - cursor_pos);
+        write_fmt(m_out, "\r\033[K> {}\033[{}D", current_line, current_line.size() - cursor_pos);
     } else {
-        write_fmt(m_out, "\r\033[K{}", current_line);
+        write_fmt(m_out, "\r\033[K> {}", current_line);
     }
 }
