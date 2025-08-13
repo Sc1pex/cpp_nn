@@ -5,13 +5,13 @@
 
 class CliRead {
 public:
-    CliRead(std::shared_ptr<uvw::loop>& loop);
+    CliRead(std::shared_ptr<uvw::loop>& loop, std::shared_ptr<uvw::async_handle> quit);
 
     void start();
     void on_input(std::function<void(uvw::async_event& ev, uvw::async_handle& h)> handle);
 
 private:
-    void handle_data(const uvw::data_event& event);
+    void handle_data(const uvw::data_event& event, std::shared_ptr<uvw::async_handle> quit);
 
 private:
     std::shared_ptr<uvw::tty_handle> m_in;

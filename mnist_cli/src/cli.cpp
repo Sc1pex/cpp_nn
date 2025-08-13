@@ -10,13 +10,13 @@ void write_fmt(
     tty->write(s.data(), s.size());
 }
 
-CliRead::CliRead(std::shared_ptr<uvw::loop>& loop) {
+CliRead::CliRead(std::shared_ptr<uvw::loop>& loop, std::shared_ptr<uvw::async_handle> quit) {
     m_in = loop->resource<uvw::tty_handle>(0, true);
     m_out = loop->resource<uvw::tty_handle>(1, false);
     m_send = loop->resource<uvw::async_handle>();
 
-    m_in->on<uvw::data_event>([this](const uvw::data_event& event, uvw::tty_handle&) {
-        handle_data(event);
+    m_in->on<uvw::data_event>([this, quit](const uvw::data_event& event, uvw::tty_handle&) {
+        handle_data(event, quit);
     });
 
     current_line = "";
@@ -34,14 +34,17 @@ void CliRead::on_input(std::function<void(uvw::async_event& ev, uvw::async_handl
     m_send->on<uvw::async_event>(handle);
 }
 
-void CliRead::handle_data(const uvw::data_event& event) {
+void CliRead::handle_data(const uvw::data_event& event, std::shared_ptr<uvw::async_handle> quit) {
     auto key_opt = Key::from_byes(event.data.get(), event.length);
     if (!key_opt) {
         return;
     }
     auto key = *key_opt;
 
-    if (!key.is_special()) {
+    if (key == Key::Special::CtrlC || key == Key::Special::CtrlD) {
+        quit->send();
+        return;
+    } else if (!key.is_special()) {
         current_line.insert(cursor_pos, 1, key.get_char());
         cursor_pos++;
     } else if (key == Key::Special::Backspace) {
@@ -67,6 +70,7 @@ void CliRead::handle_data(const uvw::data_event& event) {
         m_send->data(std::make_shared<std::string>(current_line));
         m_send->send();
         current_line.clear();
+        cursor_pos = 0;
 
         return;
     }

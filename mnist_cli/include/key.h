@@ -19,6 +19,9 @@ public:
 
         Home,
         End,
+
+        CtrlC,
+        CtrlD,
     };
 
 public:

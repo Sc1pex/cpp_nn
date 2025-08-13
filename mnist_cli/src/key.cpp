@@ -11,6 +11,10 @@ std::optional<Key> Key::from_byes(const char* bytes, int length) {
             return Key(Special::Tab);
         } else if (32 <= bytes[0] && bytes[0] <= 126) {
             return Key(bytes[0]);
+        } else if (bytes[0] == 3) {
+            return Key(Special::CtrlC);
+        } else if (bytes[0] == 4) {
+            return Key(Special::CtrlD);
         }
     } else if (length == 3) {
         if (bytes[0] == 27 && bytes[1] == 91) {
