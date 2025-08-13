@@ -24,10 +24,13 @@ public:
 public:
     static std::optional<Key> from_byes(const char* bytes, int length);
 
-    bool operator=(const char c) const;
-    bool operator=(const Special s) const;
+    bool operator==(const char c) const;
+    bool operator==(const Special s) const;
 
     bool is_special() const;
+
+    // Can only be called if the key is not special
+    char get_char() const;
 
 private:
     Key(char c);

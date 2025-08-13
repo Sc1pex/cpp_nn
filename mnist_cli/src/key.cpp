@@ -49,10 +49,18 @@ Key::Key(Special s) {
     m_special = s;
 }
 
-bool Key::operator=(const char c) const {
+bool Key::operator==(const char c) const {
     return !m_is_special && m_char == c;
 }
 
-bool Key::operator=(const Special s) const {
+bool Key::operator==(const Special s) const {
     return m_is_special && m_special == s;
+}
+
+bool Key::is_special() const {
+    return m_is_special;
+}
+
+char Key::get_char() const {
+    return m_char;
 }

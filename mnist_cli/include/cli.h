@@ -14,7 +14,9 @@ private:
 
 private:
     std::shared_ptr<uvw::tty_handle> m_in;
+    std::shared_ptr<uvw::tty_handle> m_out;
     std::shared_ptr<uvw::async_handle> m_send;
 
     std::string current_line;
+    int cursor_pos;
 };
