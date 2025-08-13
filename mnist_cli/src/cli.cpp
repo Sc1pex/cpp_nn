@@ -1,5 +1,6 @@
 #include "cli.h"
 #include <print>
+#include "key.h"
 
 CliRead::CliRead(std::shared_ptr<uvw::loop>& loop) {
     m_in = loop->resource<uvw::tty_handle>(0, true);
@@ -16,7 +17,8 @@ void CliRead::start() {
 }
 
 void CliRead::handle_data(const uvw::data_event& event) {
-    for (int i = 0; i < event.length; i++) {
-        std::print("Got {} \r\n", (int) event.data[i]);
+    auto key = Key::from_byes(event.data.get(), event.length);
+    if (key) {
+        std::println("Got {}", *key);
     }
 }
