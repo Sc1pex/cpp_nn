@@ -17,6 +17,7 @@
     "tailwindcss": "^4.1.13"
   },
   "devDependencies": {
+    "@catppuccin/daisyui": "^2.1.1",
     "typescript": "~5.8.3",
     "vite": "^7.1.7",
     "vite-plugin-solid": "^2.11.8"
