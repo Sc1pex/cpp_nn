@@ -21,13 +21,13 @@ function Networks() {
 
           <Suspense fallback={<div>Loading...</div>}>
             <For each={data()}>
-              {(item) => (
+              {(network) => (
                 <div class="card bg-base-200 shadow-sm cursor-pointer hover:shadow-md hover:bg-base-300 transition duration-200">
                   <div class="card-body text-lg">
-                    <h2 class="card-title text-2xl">Network #{item.id}</h2>
-                    <p> Shape: [{item.shape.join(", ")}]</p>
-                    <p> Training iterations: {item.training_iterations}</p>
-                    <p> Cost: {item.cost.toFixed(4)}</p>
+                    <h2 class="card-title text-2xl">{network.name}</h2>
+                    <p> Shape: [{network.shape.join(", ")}]</p>
+                    <p> Training iterations: {network.training_iterations}</p>
+                    <p> Cost: {network.cost.toFixed(4)}</p>
                     <div class="card-actions justify-end">
                       <ExternalLink />
                     </div>

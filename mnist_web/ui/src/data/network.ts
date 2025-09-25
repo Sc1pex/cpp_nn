@@ -1,5 +1,5 @@
 export type Network = {
-  id: number;
+  name: string;
   shape: number[];
   training_iterations: number;
   cost: number;
