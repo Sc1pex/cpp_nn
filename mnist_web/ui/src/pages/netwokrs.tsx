@@ -1,11 +1,11 @@
 import { For, Suspense, createSignal } from "solid-js";
-import ExternalLink from "lucide-solid/icons/external-link";
 import Plus from "lucide-solid/icons/plus";
 import CreateNetworkModal from "../components/CreateNetworkModal";
 import { networkState } from "../data/network";
+import NetworkComponent from "../components/NetworkComponent";
 
 function Networks() {
-  const { getNetworks, addNetwork, isFetching } = networkState;
+  const { getNetworks, addNetwork, isFetching, deleteNetwork } = networkState;
   const [showCreateModal, setShowCreateModal] = createSignal(false);
 
   const handleNewNetwork = (name: string, shape: string) => {
@@ -51,17 +51,11 @@ function Networks() {
           <Suspense fallback={<div>Loading...</div>}>
             <For each={getNetworks()}>
               {(network) => (
-                <div class="card bg-base-200 shadow-sm cursor-pointer hover:shadow-md hover:bg-base-300 transition duration-200">
-                  <div class="card-body text-lg">
-                    <h2 class="card-title text-2xl">{network.name}</h2>
-                    <p> Shape: [{network.shape.join(", ")}]</p>
-                    <p> Training iterations: {network.training_iterations}</p>
-                    <p> Cost: {network.cost.toFixed(4)}</p>
-                    <div class="card-actions justify-end">
-                      <ExternalLink />
-                    </div>
-                  </div>
-                </div>
+                <NetworkComponent
+                  network={network}
+                  onView={() => {}}
+                  onDelete={deleteNetwork}
+                />
               )}
             </For>
           </Suspense>
