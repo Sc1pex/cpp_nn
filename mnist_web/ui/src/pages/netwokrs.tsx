@@ -5,7 +5,7 @@ import CreateNetworkModal from "../components/CreateNetworkModal";
 import { networkState } from "../data/network";
 
 function Networks() {
-  const { getNetworks, addNetwork } = networkState;
+  const { getNetworks, addNetwork, isFetching } = networkState;
   const [showModal, setShowModal] = createSignal(false);
 
   const handleNewNetwork = (name: string, shape: string) => {
@@ -38,7 +38,11 @@ function Networks() {
       <div class="w-2xl mx-auto">
         <div class="flex flex-col gap-6 my-8">
           <div class="flex justify-end">
-            <button class="btn btn-primary" onClick={() => setShowModal(true)}>
+            <button
+              class="btn btn-primary"
+              onClick={() => setShowModal(true)}
+              disabled={isFetching()}
+            >
               <Plus class="w-4 h-4" />
               Create Network
             </button>

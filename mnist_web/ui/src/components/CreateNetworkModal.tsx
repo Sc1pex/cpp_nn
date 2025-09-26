@@ -1,5 +1,6 @@
 import X from "lucide-solid/icons/x";
-import { createSignal } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
+import { networkState } from "../data/network";
 
 interface CreateNetworkModalProps {
   isOpen: boolean;
@@ -13,10 +14,19 @@ interface CreateNetworkModalProps {
 function CreateNetworkModal(props: CreateNetworkModalProps) {
   const [networkName, setNetworkName] = createSignal("");
   const [networkShape, setNetworkShape] = createSignal("");
-  const [errors, setErrors] = createSignal<{ field: string; message: string }[]>([]);
+  const [errors, setErrors] = createSignal<
+    { field: string; message: string }[]
+  >([]);
+
+  createEffect(() => {
+    const networks = networkState.getNetworks();
+    if (networks && networks.length) {
+      setNetworkName(`Network #${networks.length + 1}`);
+    }
+  });
 
   const getFieldError = (fieldName: string) => {
-    return errors().find(error => error.field === fieldName)?.message;
+    return errors().find((error) => error.field === fieldName)?.message;
   };
 
   const handleSubmit = (e: Event) => {
@@ -56,13 +66,15 @@ function CreateNetworkModal(props: CreateNetworkModalProps) {
                 <input
                   type="text"
                   placeholder="Enter network name"
-                  class={`input input-bordered w-full ${getFieldError('name') ? 'input-error' : ''}`}
+                  class={`input input-bordered w-full ${getFieldError("name") ? "input-error" : ""}`}
                   value={networkName()}
                   onInput={(e) => setNetworkName(e.currentTarget.value)}
                 />
-                {getFieldError('name') && (
+                {getFieldError("name") && (
                   <label class="label">
-                    <span class="label-text-alt text-error">{getFieldError('name')}</span>
+                    <span class="label-text-alt text-error">
+                      {getFieldError("name")}
+                    </span>
                   </label>
                 )}
               </div>
@@ -74,13 +86,15 @@ function CreateNetworkModal(props: CreateNetworkModalProps) {
                 <input
                   type="text"
                   placeholder="e.g. 784,128,64,10"
-                  class={`input input-bordered w-full ${getFieldError('shape') ? 'input-error' : ''}`}
+                  class={`input input-bordered w-full ${getFieldError("shape") ? "input-error" : ""}`}
                   value={networkShape()}
                   onInput={(e) => setNetworkShape(e.currentTarget.value)}
                 />
-                {getFieldError('shape') && (
+                {getFieldError("shape") && (
                   <label class="label">
-                    <span class="label-text-alt text-error">{getFieldError('shape')}</span>
+                    <span class="label-text-alt text-error">
+                      {getFieldError("shape")}
+                    </span>
                   </label>
                 )}
               </div>

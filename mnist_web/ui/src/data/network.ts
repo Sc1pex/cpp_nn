@@ -20,6 +20,7 @@ const [networks, { refetch }] = createResource(getNetroks);
 
 export const networkState = {
   getNetworks: () => networks(),
+  isFetching: () => networks.loading,
   addNetwork: (name: string, shape: number[]) => {
     const err = addNetwork(name, shape);
     if (err === null) {
