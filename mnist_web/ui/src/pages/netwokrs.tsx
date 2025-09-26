@@ -6,7 +6,7 @@ import { networkState } from "../data/network";
 
 function Networks() {
   const { getNetworks, addNetwork, isFetching } = networkState;
-  const [showModal, setShowModal] = createSignal(false);
+  const [showCreateModal, setShowCreateModal] = createSignal(false);
 
   const handleNewNetwork = (name: string, shape: string) => {
     const errors = [];
@@ -40,7 +40,7 @@ function Networks() {
           <div class="flex justify-end">
             <button
               class="btn btn-primary"
-              onClick={() => setShowModal(true)}
+              onClick={() => setShowCreateModal(true)}
               disabled={isFetching()}
             >
               <Plus class="w-4 h-4" />
@@ -68,11 +68,12 @@ function Networks() {
         </div>
       </div>
 
-      <CreateNetworkModal
-        isOpen={showModal()}
-        onClose={() => setShowModal(false)}
-        onSubmit={handleNewNetwork}
-      />
+      {showCreateModal() && (
+        <CreateNetworkModal
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleNewNetwork}
+        />
+      )}
     </>
   );
 }
