@@ -3,10 +3,14 @@ import Plus from "lucide-solid/icons/plus";
 import CreateNetworkModal from "../components/CreateNetworkModal";
 import { networkState } from "../data/network";
 import NetworkComponent from "../components/NetworkComponent";
+import DeleteNetworkConfirm from "../components/DeleteNetworkConfirm";
 
 function Networks() {
   const { getNetworks, addNetwork, isFetching, deleteNetwork } = networkState;
   const [showCreateModal, setShowCreateModal] = createSignal(false);
+  const [deleteModalNetworkName, setDeleteModalNetworkName] = createSignal<
+    string | null
+  >(null);
 
   const handleNewNetwork = (name: string, shape: string) => {
     const errors = [];
@@ -54,7 +58,9 @@ function Networks() {
                 <NetworkComponent
                   network={network}
                   onView={() => {}}
-                  onDelete={deleteNetwork}
+                  onDelete={() => {
+                    setDeleteModalNetworkName(network.name);
+                  }}
                 />
               )}
             </For>
@@ -66,6 +72,16 @@ function Networks() {
         <CreateNetworkModal
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleNewNetwork}
+        />
+      )}
+
+      {deleteModalNetworkName() && (
+        <DeleteNetworkConfirm
+          onClose={() => setDeleteModalNetworkName(null)}
+          name={deleteModalNetworkName()!}
+          onConfirm={(name) => {
+            deleteNetwork(name);
+          }}
         />
       )}
     </>
