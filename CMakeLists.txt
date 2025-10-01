@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Eigen3 CONFIG REQUIRED)
+find_package(httc CONFIG REQUIRED)
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 add_compile_definitions(EIGEN_NO_DEBUG)

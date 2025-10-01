@@ -4,3 +4,4 @@ target_sources(server
     PUBLIC
         src/main.cpp
 )
+target_link_libraries(server PRIVATE httc::httc)
