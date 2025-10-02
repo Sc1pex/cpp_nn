@@ -78,3 +78,6 @@ becnhmark_mnist_train: build_release
 
     # Cleanup
     rm "$output_file"
+
+run_server: build_release
+    ./build/mnist_web/server/server

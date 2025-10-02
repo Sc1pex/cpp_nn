@@ -3,5 +3,6 @@ target_include_directories(server PUBLIC include)
 target_sources(server
     PUBLIC
         src/main.cpp
+        src/app.cpp
 )
 target_link_libraries(server PRIVATE httc::httc)
