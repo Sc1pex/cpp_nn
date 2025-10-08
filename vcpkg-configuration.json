@@ -7,7 +7,7 @@
   "registries": [
     {
       "kind": "git",
-      "baseline": "b04143a93ac7802710974babffd37307e087ef91",
+      "baseline": "be8e8436c7d497a5e1c6e4f4f8dbf3bcf55979cb",
       "repository": "https://github.com/Sc1pex/vcpkg",
       "packages": ["httc"]
     }
