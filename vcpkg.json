@@ -5,6 +5,7 @@
       "version>=": "3.4.0"
     },
     "httc",
-    "asio"
+    "asio",
+    "sqlite3"
   ]
 }
