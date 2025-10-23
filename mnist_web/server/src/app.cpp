@@ -1,4 +1,6 @@
 #include "app.h"
+#include <httc/request.h>
+#include <httc/response.h>
 #include <httc/router.h>
 #include <httc/server.h>
 #include <sqlite3.h>
@@ -11,6 +13,14 @@ App::App() {
     m_state = std::make_shared<State>("mnist.db");
     m_router = std::make_shared<httc::Router>();
 
+    m_router->wrap(
+        [](const httc::Request& req, httc::Response& res, auto next) -> asio::awaitable<void> {
+            // CORS middleware
+            res.headers.set("Access-Control-Allow-Origin", "*");
+            res.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            co_return co_await next(req, res);
+        }
+    );
     network_api_routes(m_router, m_state);
 }
 
