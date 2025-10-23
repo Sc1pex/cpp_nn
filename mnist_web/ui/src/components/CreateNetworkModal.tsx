@@ -7,15 +7,15 @@ interface CreateNetworkModalProps {
   onSubmit: (
     name: string,
     shape: string,
-  ) => { field: string; message: string }[] | null;
+  ) => Promise<{ field: string; error: string }[] | null>;
 }
 
 function CreateNetworkModal(props: CreateNetworkModalProps) {
   const [networkName, setNetworkName] = createSignal("");
   const [networkShape, setNetworkShape] = createSignal("");
-  const [errors, setErrors] = createSignal<
-    { field: string; message: string }[]
-  >([]);
+  const [errors, setErrors] = createSignal<{ field: string; error: string }[]>(
+    [],
+  );
 
   createEffect(() => {
     const networks = networkState.getNetworks();
@@ -25,13 +25,16 @@ function CreateNetworkModal(props: CreateNetworkModalProps) {
   });
 
   const getFieldError = (fieldName: string) => {
-    return errors().find((error) => error.field === fieldName)?.message;
+    return errors().find((error) => error.field === fieldName)?.error;
   };
 
-  const handleSubmit = (e: Event) => {
+  const handleSubmit = async (e: Event) => {
     e.preventDefault();
 
-    const validationErrors = props.onSubmit(networkName(), networkShape());
+    const validationErrors = await props.onSubmit(
+      networkName(),
+      networkShape(),
+    );
 
     if (validationErrors && validationErrors.length > 0) {
       setErrors(validationErrors);

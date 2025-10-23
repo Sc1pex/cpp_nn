@@ -12,24 +12,24 @@ function Networks() {
     string | null
   >(null);
 
-  const handleNewNetwork = (name: string, shape: string) => {
-    const errors = [];
+  const handleNewNetwork = async (name: string, shape: string) => {
+    const errors: { field: string; error: string }[] = [];
     const shapeArray = validateShape(shape);
     if (shapeArray === null) {
       errors.push({
         field: "shape",
-        message: "Shape must be a comma-separated list of positive integers",
+        error: "Shape must be a comma-separated list of positive integers",
       });
     }
     name = name.trim();
     if (name === "") {
-      errors.push({ field: "name", message: "Name cannot be empty" });
+      errors.push({ field: "name", error: "Name cannot be empty" });
     }
     if (errors.length > 0) {
       return errors;
     }
 
-    const err = addNetwork(name, shapeArray!);
+    const err = await addNetwork(name, shapeArray!);
     if (err != null) {
       return [err];
     }
