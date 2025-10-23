@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(httc CONFIG REQUIRED)
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 add_compile_definitions(EIGEN_NO_DEBUG)

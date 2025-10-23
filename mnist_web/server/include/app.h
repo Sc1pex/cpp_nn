@@ -1,5 +1,6 @@
 #pragma once
 #include <httc/router.h>
+#include "db.h"
 
 class App {
 public:
@@ -9,4 +10,5 @@ public:
 
 private:
     std::shared_ptr<httc::Router> m_router;
+    DB m_db;
 };
