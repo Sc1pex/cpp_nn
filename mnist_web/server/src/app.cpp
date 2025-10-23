@@ -18,6 +18,9 @@ App::App() {
             // CORS middleware
             res.headers.set("Access-Control-Allow-Origin", "*");
             res.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            res.headers.set(
+                "Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With"
+            );
             co_return co_await next(req, res);
         }
     );
