@@ -5,6 +5,7 @@ target_sources(server
         src/main.cpp
         src/app.cpp
         src/db.cpp
+        src/api/network.cpp
 )
 target_link_libraries(server PRIVATE httc::httc)
 target_link_libraries(server PRIVATE asio::asio)
