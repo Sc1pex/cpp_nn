@@ -34,6 +34,7 @@ function Networks() {
       return [err];
     }
 
+    setShowCreateModal(false);
     return null;
   };
 
@@ -79,8 +80,11 @@ function Networks() {
         <DeleteNetworkConfirm
           onClose={() => setDeleteModalNetworkName(null)}
           name={deleteModalNetworkName()!}
-          onConfirm={(name) => {
-            deleteNetwork(name);
+          onConfirm={async (name) => {
+            const ok = await deleteNetwork(name);
+            if (ok) {
+              setDeleteModalNetworkName(null);
+            }
           }}
         />
       )}

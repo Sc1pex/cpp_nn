@@ -19,7 +19,13 @@ export const networkState = {
     }
     return err;
   },
-  deleteNetwork: deleteNetwork,
+  deleteNetwork: async (name: string) => {
+    const success = await deleteNetwork(name);
+    if (success) {
+      await refetch();
+    }
+    return success;
+  },
 };
 
 async function addNetwork(name: string, shape: number[]) {
@@ -49,7 +55,7 @@ async function getNetroks(): Promise<Network[]> {
 async function deleteNetwork(name: string) {
   const url = `${import.meta.env.VITE_SERVER_URL}/api/deleteNetwork`;
   const res = await fetch(url, {
-    method: "DELETE",
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
