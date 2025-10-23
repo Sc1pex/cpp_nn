@@ -5,3 +5,5 @@ data/
 # vcpkg build artifacts
 vcpkg_installed/
 *.log
+
+mnist.db
