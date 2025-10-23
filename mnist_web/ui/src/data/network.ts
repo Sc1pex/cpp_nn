@@ -7,88 +7,57 @@ export type Network = {
   cost: number;
 };
 
-const networksArr: Network[] = [
-  {
-    name: "Network #1",
-    shape: [784, 16, 16, 10],
-    training_iterations: 1000,
-    cost: 0.2,
-  },
-];
-
 const [networks, { refetch }] = createResource(getNetroks);
 
 export const networkState = {
-  getNetworks: () => networks(),
+  getNetworks: networks,
   isFetching: () => networks.loading,
-  addNetwork: (name: string, shape: number[]) => {
-    const err = addNetwork(name, shape);
-    if (err === null) {
-      refetch();
+  addNetwork: async (name: string, shape: number[]) => {
+    const err = await addNetwork(name, shape);
+    if (!err) {
+      await refetch();
     }
     return err;
   },
-  deleteNetwork: (name: string) => {
-    const index = networksArr.findIndex((net) => net.name === name);
-    if (index !== -1) {
-      networksArr.splice(index, 1);
-      refetch();
-    }
-  },
+  deleteNetwork: deleteNetwork,
 };
 
-function addNetwork(name: string, shape: number[]) {
-  // Validate shape
-  if (shape.length < 2) {
-    return {
-      field: "shape",
-      message: "Shape must have at least two layers",
-    };
-  }
-  if (shape[0] !== 784) {
-    return {
-      field: "shape",
-      message: "Input layer must have 784 neurons (28x28 pixels)",
-    };
-  }
-  if (shape[shape.length - 1] !== 10) {
-    return {
-      field: "shape",
-      message: "Output layer must have 10 neurons (digits 0-9)",
-    };
-  }
-
-  for (let i = 1; i < shape.length - 1; i++) {
-    if (shape[i] <= 0 || !Number.isInteger(shape[i])) {
-      return {
-        field: "shape",
-        message: "All layers must have a positive integer number of neurons",
-      };
-    }
-  }
-
-  // Names should be unique
-  if (networksArr.some((net) => net.name === name)) {
-    return {
-      field: "name",
-      message: "Network name must be unique",
-    };
-  }
-
-  networksArr.push({
-    name,
-    shape,
-    training_iterations: 0,
-    cost: 0,
+async function addNetwork(name: string, shape: number[]) {
+  const url = `${import.meta.env.VITE_SERVER_URL}/api/addNetwork`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, shape }),
   });
+
+  if (!res.ok) {
+    const err = await res.json();
+    return err;
+  }
 
   return null;
 }
 
-export function getNetroks(): Promise<Network[]> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([...networksArr]);
-    }, 500);
+async function getNetroks(): Promise<Network[]> {
+  const url = `${import.meta.env.VITE_SERVER_URL}/api/networks`;
+  const res = await fetch(url);
+  return await res.json();
+}
+
+async function deleteNetwork(name: string) {
+  const url = `${import.meta.env.VITE_SERVER_URL}/api/deleteNetwork`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
   });
+
+  if (!res.ok) {
+    return false;
+  }
+  return true;
 }
