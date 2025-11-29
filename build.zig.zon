@@ -1,0 +1,13 @@
+.{
+    .name = .mnist,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.15.2",
+    .fingerprint = 0x6805ab6e483166d0,
+    .dependencies = .{
+        .eigen = .{
+            .url = "https://gitlab.com/Scipex/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz",
+            .hash = "eigen-5.0.1-Wq0Y-lhQdQA8PydohljV_7v_ZUetiTeVwTIVvc2Az2jJ",
+        },
+    },
+    .paths = .{""},
+}
