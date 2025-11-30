@@ -5,8 +5,8 @@
     .fingerprint = 0x6805ab6e483166d0,
     .dependencies = .{
         .eigen = .{
-            .url = "https://gitlab.com/Scipex/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz",
-            .hash = "eigen-5.0.1-Wq0Y-lhQdQA8PydohljV_7v_ZUetiTeVwTIVvc2Az2jJ",
+            .url = "https://github.com/Sc1pex/Eigen/archive/refs/tags/v5.0.1.tar.gz",
+            .hash = "eigen-5.0.1-L74h2JwLAAByAHbkzUEnw5hX8qJkMRTKd7x8Nptv433m",
         },
     },
     .paths = .{""},
