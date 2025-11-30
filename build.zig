@@ -21,7 +21,9 @@ pub fn build(b: *std.Build) void {
     const flags = CXX_FLAGS ++ .{"-Inn_lib/include/"};
     nn_lib.addCSourceFiles(.{
         .root = b.path("nn_lib/src"),
-        .files = &.{},
+        .files = &.{
+            "nn.cpp",
+        },
         .flags = &flags,
     });
 
