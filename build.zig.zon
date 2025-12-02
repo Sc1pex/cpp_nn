@@ -16,6 +16,10 @@
             .url = "https://github.com/Sc1pex/asio/archive/refs/tags/v1.36.0.tar.gz",
             .hash = "asio-1.36.0-FKFME0cHAAAbCyXs_2YTtYhy34n8MIh1qaQriCu74_S5",
         },
+        .spdlog = .{
+            .url = "https://github.com/Sc1pex/spdlog/archive/refs/tags/v1.16.0.tar.gz",
+            .hash = "spdlog-1.16.0-oOk36DAMAAAXRBR0i6XdVBh2i5cyzMzgc_Cl0xkiWB_r",
+        },
     },
     .paths = .{""},
 }

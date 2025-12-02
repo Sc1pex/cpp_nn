@@ -39,6 +39,9 @@ pub fn build(b: *std.Build) void {
     const asio_dep = b.dependency("asio", .{});
     const asio_lib = asio_dep.artifact("asio");
 
+    const spdlog_dep = b.dependency("spdlog", .{});
+    const spdlog_lib = spdlog_dep.artifact("spdlog");
+
     const server = b.addExecutable(.{
         .name = "nn_server",
         .root_module = b.createModule(
@@ -60,6 +63,7 @@ pub fn build(b: *std.Build) void {
     server.linkLibrary(nn_lib);
     server.linkLibrary(httc_lib);
     server.linkLibrary(asio_lib);
+    server.linkLibrary(spdlog_lib);
 
     const run_server_step = b.step("run-server", "Run the server");
     const run_server = b.addRunArtifact(server);
