@@ -9,12 +9,8 @@
             .hash = "eigen-5.0.1-L74h2JwLAAByAHbkzUEnw5hX8qJkMRTKd7x8Nptv433m",
         },
         .httc = .{
-            .url = "https://github.com/Sc1pex/httc/archive/refs/tags/v0.4.0.tar.gz",
-            .hash = "httc-0.4.1-9ym6-ZCnAQAnqxBfFYE-ydoHOPbJTeoL5cGta0eDyjeS",
-        },
-        .asio = .{
-            .url = "https://github.com/Sc1pex/asio/archive/refs/tags/v1.36.0.tar.gz",
-            .hash = "asio-1.36.0-FKFME0cHAAAbCyXs_2YTtYhy34n8MIh1qaQriCu74_S5",
+            .url = "https://github.com/Sc1pex/httc/archive/refs/tags/v0.1.0.tar.gz",
+            .hash = "httc-0.1.0-9ym6-SmoAQA5a7B_E6yyMhtMNtjP2RF-STaR0kWfyCxQ",
         },
         .spdlog = .{
             .url = "https://github.com/Sc1pex/spdlog/archive/refs/tags/v1.16.0.tar.gz",

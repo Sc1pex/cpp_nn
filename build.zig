@@ -4,6 +4,21 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const nn_lib = build_nn_lib(b, target, optimize);
+    const server = build_server(b, target, optimize, nn_lib);
+
+    const run_server_step = b.step("run-server", "Run the server");
+    const run_server = b.addRunArtifact(server);
+    run_server_step.dependOn(&run_server.step);
+
+    const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");
+    cdb_step.makeFn = collect_cdb_fragments;
+    cdb_step.dependOn(&nn_lib.step);
+    cdb_step.dependOn(&server.step);
+    b.getInstallStep().dependOn(cdb_step);
+}
+
+fn build_nn_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
     const nn_lib = b.addLibrary(.{
         .name = "nn_lib",
         .root_module = b.createModule(
@@ -31,13 +46,17 @@ pub fn build(b: *std.Build) void {
     const eigen_lib = eigen_dep.artifact("eigen");
     nn_lib.linkLibrary(eigen_lib);
 
+    // Make eigen headers available to consumers of nn_lib
+    nn_lib.installed_headers.appendSlice(eigen_lib.installed_headers.items) catch unreachable;
+
     b.installArtifact(nn_lib);
 
+    return nn_lib;
+}
+
+fn build_server(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, nn_lib: *std.Build.Step.Compile) *std.Build.Step.Compile {
     const httc_dep = b.dependency("httc", .{});
     const httc_lib = httc_dep.artifact("httc");
-
-    const asio_dep = b.dependency("asio", .{});
-    const asio_lib = asio_dep.artifact("asio");
 
     const spdlog_dep = b.dependency("spdlog", .{});
     const spdlog_lib = spdlog_dep.artifact("spdlog");
@@ -62,20 +81,11 @@ pub fn build(b: *std.Build) void {
     });
     server.linkLibrary(nn_lib);
     server.linkLibrary(httc_lib);
-    server.linkLibrary(asio_lib);
     server.linkLibrary(spdlog_lib);
 
-    const run_server_step = b.step("run-server", "Run the server");
-    const run_server = b.addRunArtifact(server);
-    run_server_step.dependOn(&run_server.step);
-
-    const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");
-    cdb_step.makeFn = collect_cdb_fragments;
-    cdb_step.dependOn(&nn_lib.step);
-    cdb_step.dependOn(&server.step);
-    b.getInstallStep().dependOn(cdb_step);
-
     b.installArtifact(server);
+
+    return server;
 }
 
 // Taken from https://zacoons.com/blog/2025-02-16-how-to-get-clang-lsp-working-with-zig/
