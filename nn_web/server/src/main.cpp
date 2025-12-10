@@ -4,8 +4,14 @@
 #include <httc/server.h>
 #include <spdlog/spdlog.h>
 #include <asio.hpp>
+#include "db.h"
 
 int main() {
+    Db db(
+        "nn_web.db", "data/train-images-idx3-ubyte", "data/train-labels-idx1-ubyte",
+        "data/t10k-images-idx3-ubyte", "data/t10k-labels-idx1-ubyte"
+    );
+
     auto router = std::make_shared<httc::Router>();
     router->wrap(
         [](const httc::Request& req, httc::Response& res, auto next) -> asio::awaitable<void> {
