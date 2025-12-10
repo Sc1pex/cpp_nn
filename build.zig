@@ -78,9 +78,10 @@ fn build_server(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
     server.addCSourceFiles(.{
         .root = b.path("nn_web/server/src"),
         .files = &.{
-            "main.cpp",
+            "app.cpp",
             "db.cpp",
             "idx.cpp",
+            "main.cpp",
         },
         .flags = CXX_FLAGS,
     });
