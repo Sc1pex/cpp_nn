@@ -16,6 +16,10 @@
             .url = "https://github.com/Sc1pex/spdlog/archive/refs/tags/v1.16.0.tar.gz",
             .hash = "spdlog-1.16.0-oOk36DAMAAAXRBR0i6XdVBh2i5cyzMzgc_Cl0xkiWB_r",
         },
+        .sqlite = .{
+            .url = "https://github.com/Sc1pex/sqlite/archive/refs/tags/v3.51.1.tar.gz",
+            .hash = "sqlite-3.51.1-emUBftoJAAACYVrGDTSMx7XuzJcM8HumgxvU95sJsB7N",
+        },
     },
     .paths = .{""},
 }

@@ -61,6 +61,9 @@ fn build_server(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
     const spdlog_dep = b.dependency("spdlog", .{});
     const spdlog_lib = spdlog_dep.artifact("spdlog");
 
+    const sqlite_dep = b.dependency("sqlite", .{});
+    const sqlite_lib = sqlite_dep.artifact("sqlite");
+
     const server = b.addExecutable(.{
         .name = "nn_server",
         .root_module = b.createModule(
@@ -76,12 +79,15 @@ fn build_server(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
         .root = b.path("nn_web/server/src"),
         .files = &.{
             "main.cpp",
+            "db.cpp",
+            "idx.cpp",
         },
         .flags = CXX_FLAGS,
     });
     server.linkLibrary(nn_lib);
     server.linkLibrary(httc_lib);
     server.linkLibrary(spdlog_lib);
+    server.linkLibrary(sqlite_lib);
 
     b.installArtifact(server);
 
