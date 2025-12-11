@@ -64,6 +64,9 @@ fn build_server(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
     const sqlite_dep = b.dependency("sqlite", .{});
     const sqlite_lib = sqlite_dep.artifact("sqlite");
 
+    const json_dep = b.dependency("json", .{});
+    const json_lib = json_dep.artifact("json");
+
     const server = b.addExecutable(.{
         .name = "nn_server",
         .root_module = b.createModule(
@@ -89,6 +92,7 @@ fn build_server(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
     server.linkLibrary(httc_lib);
     server.linkLibrary(spdlog_lib);
     server.linkLibrary(sqlite_lib);
+    server.linkLibrary(json_lib);
 
     b.installArtifact(server);
 

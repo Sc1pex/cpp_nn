@@ -7,6 +7,9 @@
 #include <sqlite3.h>
 #include <asio.hpp>
 #include <memory>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 App::App() {
     m_state = std::make_shared<State>();
@@ -24,7 +27,10 @@ App::App() {
     );
 
     m_router->route("/", [](const httc::Request&, httc::Response& res) {
-        res.set_body("Hello, world");
+        json j;
+        j["message"] = "Hello, world!";
+        res.headers.set("Content-Type", "application/json");
+        res.set_body(j.dump());
     });
 }
 
