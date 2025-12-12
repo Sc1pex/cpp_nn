@@ -19,6 +19,9 @@ public:
 
     MatrixXd feed_forward(const MatrixXd& input) const;
 
+    std::vector<double> dump_weights();
+    std::vector<double> dump_biases();
+
 private:
     std::vector<MatrixXd> m_weights;
     std::vector<VectorXd> m_biases;

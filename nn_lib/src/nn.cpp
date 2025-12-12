@@ -49,4 +49,26 @@ MatrixXd NN::feed_forward(const MatrixXd& input) const {
     return out;
 }
 
+std::vector<double> NN::dump_weights() {
+    std::vector<double> dumped;
+    for (const auto& W : m_weights) {
+        for (int r = 0; r < W.rows(); ++r) {
+            for (int c = 0; c < W.cols(); ++c) {
+                dumped.push_back(W(r, c));
+            }
+        }
+    }
+    return dumped;
+}
+
+std::vector<double> NN::dump_biases() {
+    std::vector<double> dumped;
+    for (const auto& b : m_biases) {
+        for (int i = 0; i < b.size(); ++i) {
+            dumped.push_back(b(i));
+        }
+    }
+    return dumped;
+}
+
 }
