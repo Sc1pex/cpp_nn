@@ -386,3 +386,28 @@ void Db::create_statements() {
     SELECT id, name, created_at, layer_sizes, accuracy, training_epochs FROM networks;)";
     add_stmt(get_networks_sql, "get_networks");
 }
+
+void to_json(json& j, const NetworkInfo& v) {
+    j = json{
+        { "id", v.id },
+        { "name", v.name },
+        { "created_at", v.created_at },
+        { "layet_sizes", v.layer_sizes },
+        { "accuracy", v.accuracy },
+        { "training_epochs", v.training_epochs },
+        { "weights", v.weights },
+        { "biases", v.biases },
+        { "activations", v.activations },
+    };
+}
+
+void to_json(json& j, const NetworkSummary& v) {
+    j = json{
+        { "id", v.id },
+        { "name", v.name },
+        { "created_at", v.created_at },
+        { "layer_sizes", v.layer_sizes },
+        { "accuracy", v.accuracy },
+        { "training_epochs", v.training_epochs },
+    };
+}

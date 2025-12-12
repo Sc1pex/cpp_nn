@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include "asio/awaitable.hpp"
 #include "asio/thread_pool.hpp"
+#include "nlohmann/json.hpp"
+
+using nlohmann::json;
 
 struct DBError {
     int code;
@@ -44,6 +47,9 @@ struct NetworkSummary {
     double accuracy;
     int training_epochs;
 };
+
+void to_json(json& j, const NetworkInfo& v);
+void to_json(json& j, const NetworkSummary& v);
 
 class Db {
 public:
