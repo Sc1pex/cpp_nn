@@ -23,6 +23,8 @@ Db::Db(
         spdlog::info("Adding training and test data to database");
         add_test_train_data(train_input_path, train_output_path, test_input_path, test_output_path);
     }
+
+    create_statements();
 }
 
 Db::~Db() {
@@ -254,11 +256,10 @@ asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
             std::string activations_str = activations_json.dump();
             sqlite3_bind_text(stmt, 7, activations_str.c_str(), -1, SQLITE_STATIC);
 
-            if (sqlite3_step(stmt) != SQLITE_DONE) {
+            int rc = sqlite3_step(stmt);
+            if (rc != SQLITE_DONE) {
                 sqlite3_reset(stmt);
-                return std::unexpected(
-                    DBError{ sqlite3_extended_errcode(m_db), sqlite3_errmsg(m_db) }
-                );
+                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
             }
 
             sqlite3_reset(stmt);
@@ -281,9 +282,7 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
                 if (rc == SQLITE_DONE) {
                     return std::nullopt;
                 } else {
-                    return std::unexpected(
-                        DBError{ sqlite3_extended_errcode(m_db), sqlite3_errmsg(m_db) }
-                    );
+                    return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
                 }
             }
 
@@ -353,9 +352,7 @@ asio::awaitable<DBResult<std::vector<NetworkSummary>>> Db::get_networks() {
 
             if (rc != SQLITE_DONE) {
                 sqlite3_reset(stmt);
-                return std::unexpected(
-                    DBError{ sqlite3_extended_errcode(m_db), sqlite3_errmsg(m_db) }
-                );
+                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
             }
 
             sqlite3_reset(stmt);
