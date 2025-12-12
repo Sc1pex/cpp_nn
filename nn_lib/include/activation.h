@@ -1,7 +1,10 @@
 #pragma once
 
 #include <cmath>
+#include <optional>
+#include <string_view>
 #include <variant>
+#include <vector>
 
 namespace nn {
 
@@ -38,5 +41,8 @@ struct None {
 }
 
 using Activation = std::variant<activation::ReLU, activation::Sigmoid, activation::None>;
+
+std::optional<Activation> str_to_activation(std::string_view s);
+std::optional<std::vector<Activation>> strs_to_activation(const std::vector<std::string>& v);
 
 }

@@ -38,6 +38,7 @@ fn build_nn_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.b
         .root = b.path("nn_lib/src"),
         .files = &.{
             "nn.cpp",
+            "activation.cpp",
         },
         .flags = CXX_FLAGS,
     });
