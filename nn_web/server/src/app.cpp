@@ -4,7 +4,7 @@
 #include <httc/router.h>
 #include <httc/server.h>
 #include <nn_lib/activation.h>
-#include <nn_lib/nn.h>
+#include <nn_lib/network.h>
 #include <spdlog/spdlog.h>
 #include <sqlite3.h>
 #include <asio.hpp>
@@ -98,7 +98,8 @@ void App::add_network_routes() {
                     co_return;
                 }
 
-                nn::NN network = nn::NN::new_random(add_req.layer_sizes, activations_opt.value());
+                nn::Network network =
+                    nn::Network::new_random(add_req.layer_sizes, activations_opt.value());
 
                 AddNetwork db_network;
                 db_network.name = add_req.name;

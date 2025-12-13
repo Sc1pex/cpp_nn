@@ -9,12 +9,14 @@ namespace nn {
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
-class NN {
+class Network {
 public:
-    NN(const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
-       const std::vector<Activation>& activations);
+    Network(
+        const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
+        const std::vector<Activation>& activations
+    );
 
-    static NN
+    static Network
         new_random(const std::vector<int>& layer_sizes, const std::vector<Activation>& activations);
 
     MatrixXd feed_forward(const MatrixXd& input) const;

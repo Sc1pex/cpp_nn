@@ -1,9 +1,11 @@
-#include "nn.h"
+#include "network.h"
 #include <ranges>
 
 namespace nn {
 
-NN NN::new_random(const std::vector<int>& layer_sizes, const std::vector<Activation>& activations) {
+Network Network::new_random(
+    const std::vector<int>& layer_sizes, const std::vector<Activation>& activations
+) {
     assert(layer_sizes.size() >= 2);
     assert(layer_sizes.size() - 1 == activations.size());
 
@@ -18,10 +20,10 @@ NN NN::new_random(const std::vector<int>& layer_sizes, const std::vector<Activat
         weights.push_back(W);
         biases.push_back(b);
     }
-    return NN(weights, biases, activations);
+    return Network(weights, biases, activations);
 }
 
-NN::NN(
+Network::Network(
     const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
     const std::vector<Activation>& activations
 )
@@ -31,7 +33,7 @@ NN::NN(
     assert(m_weights.size() == m_activations.size());
 }
 
-MatrixXd NN::feed_forward(const MatrixXd& input) const {
+MatrixXd Network::feed_forward(const MatrixXd& input) const {
     MatrixXd out = input;
 
     for (auto [W, b, act] : std::views::zip(m_weights, m_biases, m_activations)) {
@@ -49,7 +51,7 @@ MatrixXd NN::feed_forward(const MatrixXd& input) const {
     return out;
 }
 
-std::vector<double> NN::dump_weights() {
+std::vector<double> Network::dump_weights() {
     std::vector<double> dumped;
     for (const auto& W : m_weights) {
         for (int r = 0; r < W.rows(); ++r) {
@@ -61,7 +63,7 @@ std::vector<double> NN::dump_weights() {
     return dumped;
 }
 
-std::vector<double> NN::dump_biases() {
+std::vector<double> Network::dump_biases() {
     std::vector<double> dumped;
     for (const auto& b : m_biases) {
         for (int i = 0; i < b.size(); ++i) {
