@@ -1,3 +1,7 @@
+<script lang="ts">
+  import { Button } from "$lib/components/ui/button/index.js";
+</script>
+
 <main>
-  <div class="bg-red-400 text-xl">Hello, world</div>
+  <Button>click me</Button>
 </main>
