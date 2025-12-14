@@ -32,7 +32,7 @@ struct NetworkInfo {
     std::string name;
     std::string created_at;
     std::vector<int> layer_sizes;
-    double accuracy;
+    int correct_predictions;
     int training_epochs;
     std::vector<double> weights;
     std::vector<double> biases;
@@ -44,7 +44,7 @@ struct NetworkSummary {
     std::string name;
     std::string created_at;
     std::vector<int> layer_sizes;
-    double accuracy;
+    int correct_predictions;
     int training_epochs;
 };
 

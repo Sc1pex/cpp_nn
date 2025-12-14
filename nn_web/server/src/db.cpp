@@ -296,7 +296,7 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
             nlohmann::json layer_sizes_json = nlohmann::json::parse(layer_sizes_str);
             network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
-            network.accuracy = sqlite3_column_double(stmt, 4);
+            network.correct_predictions = sqlite3_column_int(stmt, 4);
             network.training_epochs = sqlite3_column_int(stmt, 5);
 
             const void* weights_blob = sqlite3_column_blob(stmt, 6);
@@ -344,7 +344,7 @@ asio::awaitable<DBResult<std::vector<NetworkSummary>>> Db::get_networks() {
                 nlohmann::json layer_sizes_json = nlohmann::json::parse(layer_sizes_str);
                 network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
-                network.accuracy = sqlite3_column_double(stmt, 4);
+                network.correct_predictions = sqlite3_column_int(stmt, 4);
                 network.training_epochs = sqlite3_column_int(stmt, 5);
 
                 networks.push_back(network);
@@ -393,7 +393,7 @@ void to_json(json& j, const NetworkInfo& v) {
         { "name", v.name },
         { "created_at", v.created_at },
         { "layet_sizes", v.layer_sizes },
-        { "accuracy", v.accuracy },
+        { "correct_predictions", v.correct_predictions },
         { "training_epochs", v.training_epochs },
         { "weights", v.weights },
         { "biases", v.biases },
@@ -407,7 +407,7 @@ void to_json(json& j, const NetworkSummary& v) {
         { "name", v.name },
         { "created_at", v.created_at },
         { "layer_sizes", v.layer_sizes },
-        { "accuracy", v.accuracy },
+        { "correct_predictions", v.correct_predictions },
         { "training_epochs", v.training_epochs },
     };
 }
