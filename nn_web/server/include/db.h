@@ -62,6 +62,7 @@ public:
     asio::awaitable<DBResult<void>> add_network(const AddNetwork&& network);
     asio::awaitable<DBResult<std::optional<NetworkInfo>>> get_network_by_id(const int id);
     asio::awaitable<DBResult<std::vector<NetworkSummary>>> get_networks();
+    asio::awaitable<DBResult<void>> delete_network_by_id(const int id);
 
 private:
     bool check_data_exists();

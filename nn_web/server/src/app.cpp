@@ -120,6 +120,30 @@ void App::add_network_routes() {
                 co_return;
             } }
     );
+    m_router->route(
+        "/api/networks/:id",
+        httc::MethodWrapper<"DELETE">{
+            [this](const httc::Request& req, httc::Response& res) -> asio::awaitable<void> {
+                int network_id;
+                try {
+                    auto id_str = req.path_params.at("id");
+                    network_id = std::stoi(id_str);
+                } catch (const std::exception&) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.set_body("Invalid network ID");
+                    co_return;
+                }
+
+                auto delete_res = co_await m_state->db.delete_network_by_id(network_id);
+                if (!delete_res) {
+                    res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
+                    res.set_body("Failed to delete network");
+                    co_return;
+                }
+
+                co_return;
+            } }
+    );
 }
 
 App::App() {

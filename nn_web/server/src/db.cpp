@@ -362,6 +362,26 @@ asio::awaitable<DBResult<std::vector<NetworkSummary>>> Db::get_networks() {
     );
 }
 
+asio::awaitable<DBResult<void>> Db::delete_network_by_id(const int id) {
+    co_return co_await run_on_pool<void>(
+        [this, id]() -> std::expected<void, DBError> {
+            sqlite3_stmt* stmt = m_stmts["delete_network_by_id"];
+
+            sqlite3_bind_int(stmt, 1, id);
+
+            int rc = sqlite3_step(stmt);
+            if (rc != SQLITE_DONE) {
+                sqlite3_reset(stmt);
+                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+            }
+
+            sqlite3_reset(stmt);
+            return {};
+        },
+        m_pool
+    );
+}
+
 void Db::create_statements() {
     auto add_stmt = [this](const char* sql, const char* name) {
         sqlite3_stmt* stmt;
@@ -385,6 +405,10 @@ void Db::create_statements() {
     const char* get_networks_sql = R"(
     SELECT id, name, created_at, layer_sizes, accuracy, training_epochs FROM networks;)";
     add_stmt(get_networks_sql, "get_networks");
+
+    const char* delete_network_by_id_sql = R"(
+    DELETE FROM networks WHERE id = ?;)";
+    add_stmt(delete_network_by_id_sql, "delete_network_by_id");
 }
 
 void to_json(json& j, const NetworkInfo& v) {
