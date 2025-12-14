@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button/index.js";
+  import { Router } from "sv-router";
+  import "./router.ts";
 </script>
 
-<main>
-  <Button>click me</Button>
+<main class="w-2xl mx-auto mt-8">
+  <Router />
 </main>
