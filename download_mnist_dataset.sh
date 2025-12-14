@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 set -euo pipefail
 
-rm -rf data
-mkdir -p data
+rm -rf mnist_data
+mkdir -p mnist_data
 
 BASE_URL="https://storage.googleapis.com/cvdf-datasets/mnist"
 FILES=(
@@ -13,7 +13,7 @@ FILES=(
 )
 
 for file in "${FILES[@]}"; do
-    curl -L "$BASE_URL/$file" -o "data/$file"
+    curl -L "$BASE_URL/$file" -o "mnist_data/$file"
 done
 
 for file in "${FILES[@]}"; do

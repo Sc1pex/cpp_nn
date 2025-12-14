@@ -3,5 +3,5 @@ cdb-frags/
 zig-out/
 .cache/
 compile_commands.json
-data/
+mnist_data/
 *.db
