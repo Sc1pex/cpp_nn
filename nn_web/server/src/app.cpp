@@ -20,6 +20,32 @@ struct AddNetworkRequest {
     std::vector<std::string> activations;
 };
 
+struct FieldError {
+    std::string field;
+    std::string error;
+};
+
+void to_json(json& j, const FieldError& v) {
+    j = json{
+        { "field", v.field },
+        { "error", v.error },
+    };
+}
+
+std::optional<FieldError> validate_network_layers(const std::vector<int>& layers) {
+    if (layers.size() < 2) {
+        return FieldError{ .field = "shape", .error = "Network must have at least 2 layers" };
+    }
+    if (layers.front() != 784) {
+        return FieldError{ .field = "shape", .error = "Input layer must have 784 neurons" };
+    }
+    if (layers.back() != 10) {
+        return FieldError{ .field = "shape", .error = "Output layer must have 10 neurons" };
+    }
+
+    return std::nullopt;
+}
+
 void from_json(const json& j, AddNetworkRequest& req) {
     j.at("name").get_to(req.name);
     j.at("layer_sizes").get_to(req.layer_sizes);
@@ -60,7 +86,12 @@ void App::add_network_routes() {
                     network_id = std::stoi(id_str);
                 } catch (const std::exception&) {
                     res.status = httc::StatusCode::BAD_REQUEST;
-                    res.set_body("Invalid network ID");
+                    json error_json = {
+                        { "field", "id" },
+                        { "error", "Invalid network ID" },
+                    };
+                    res.headers.set("Content-Type", "application/json");
+                    res.set_body(error_json.dump());
                     co_return;
                 }
 
@@ -94,7 +125,21 @@ void App::add_network_routes() {
                 auto activations_opt = nn::strs_to_activation(add_req.activations);
                 if (!activations_opt) {
                     res.status = httc::StatusCode::BAD_REQUEST;
-                    res.set_body("Invalid activation functions");
+                    res.headers.set("Content-Type", "application/json");
+                    auto error_json = json{
+                        { "field", "activations" },
+                        { "error", "Invalid activation functions" },
+                    };
+                    res.set_body(error_json.dump());
+                    co_return;
+                }
+
+                auto layer_error = validate_network_layers(add_req.layer_sizes);
+                if (layer_error) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    json error_json = *layer_error;
+                    res.set_body(error_json.dump());
                     co_return;
                 }
 
@@ -110,9 +155,20 @@ void App::add_network_routes() {
 
                 auto add_res = co_await m_state->db.add_network(std::move(db_network));
                 if (!add_res) {
-                    res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-                    res.set_body("Failed to add network");
-                    co_return;
+                    if (add_res.error().code == SQLITE_CONSTRAINT_PRIMARYKEY) {
+                        auto error_json = json{
+                            { "field", "name" },
+                            { "error", "Network with this name already exists" },
+                        };
+                        res.status = httc::StatusCode::BAD_REQUEST;
+                        res.headers.set("Content-Type", "application/json");
+                        res.set_body(error_json.dump());
+                        co_return;
+                    } else {
+                        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
+                        res.set_body("Failed to add network");
+                        co_return;
+                    }
                 }
 
                 res.status = httc::StatusCode::CREATED;
