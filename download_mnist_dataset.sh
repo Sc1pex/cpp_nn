@@ -17,5 +17,5 @@ for file in "${FILES[@]}"; do
 done
 
 for file in "${FILES[@]}"; do
-    gunzip "data/$file"
+    gunzip "mnist_data/$file"
 done

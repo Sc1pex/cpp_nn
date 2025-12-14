@@ -155,7 +155,7 @@ void App::add_network_routes() {
 
                 auto add_res = co_await m_state->db.add_network(std::move(db_network));
                 if (!add_res) {
-                    if (add_res.error().code == SQLITE_CONSTRAINT_PRIMARYKEY) {
+                    if (add_res.error().code == SQLITE_CONSTRAINT_UNIQUE) {
                         auto error_json = json{
                             { "field", "name" },
                             { "error", "Network with this name already exists" },
