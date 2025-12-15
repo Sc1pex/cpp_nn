@@ -16,8 +16,8 @@
     <Card.Title class="text-xl font-semibold">
       {network.name}
     </Card.Title>
-    <Card.Description class="text-sm font-mono">
-      {network.layer_sizes.join(" → ")}
+    <Card.Description class="text-sm">
+      {network.layer_sizes.join(" ➜ ")}
     </Card.Description>
   </Card.Header>
 
