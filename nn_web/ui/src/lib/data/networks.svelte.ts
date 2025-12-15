@@ -3,13 +3,13 @@ import { apiUrl, type FieldError } from "./common";
 export type NetworkSummary = {
   id: number;
   name: string;
-  layers: number[];
+  layer_sizes: number[];
   correct_predictions: number;
   training_epochs: number;
 };
 
 export class NetworkSummaries {
-  networks = $state<NetworkSummary[] | undefined>(undefined);
+  networks = $state<NetworkSummary[]>([]);
   loading = $state(false);
 
   constructor() {
@@ -18,7 +18,8 @@ export class NetworkSummaries {
 
   async fetch() {
     this.loading = true;
-    this.networks = await fetch(apiUrl("networks")).then((res) => res.json());
+    const response = await fetch(apiUrl("networks")).then((res) => res.json());
+    this.networks = response.networks;
     this.loading = false;
   }
 
