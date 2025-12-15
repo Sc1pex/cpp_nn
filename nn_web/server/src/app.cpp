@@ -217,6 +217,18 @@ App::App() {
         }
     );
 
+    // CORS middleware
+    m_router->wrap(
+        [](const httc::Request& req, httc::Response& res, auto next) -> asio::awaitable<void> {
+            res.headers.set("Access-Control-Allow-Origin", "*");
+            res.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+            res.headers.set(
+                "Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With"
+            );
+            co_return co_await next(req, res);
+        }
+    );
+
     add_network_routes();
 }
 
