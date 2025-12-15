@@ -24,14 +24,14 @@ export class NetworkSummaries {
     this.loading = false;
   }
 
-  async add(name: string, layers: number[]): Promise<FieldError | null> {
+  async add(name: string, layer_sizes: number[], activations: string[]): Promise<FieldError | null> {
     try {
       const res = await fetch(apiUrl("networks"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, layers }),
+        body: JSON.stringify({ name, layer_sizes, activations }),
       });
 
       if (!res.ok) {
