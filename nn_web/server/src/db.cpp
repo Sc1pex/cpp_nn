@@ -56,8 +56,9 @@ void Db::create_tables() {
         
         layer_sizes TEXT NOT NULL,  -- JSON: [784, 128, 64, 10]
         
-        correct_predictions INTEGER NOT NULL,
-        training_epochs INTEGER NOT NULL,
+        correct_predictions INTEGER NOT NULL DEFAULT 0,
+        training_epochs INTEGER NOT NULL DEFAULT 0,
+        cost REAL NOT NULL DEFAULT 0.0,
         
         weights BLOB NOT NULL,      -- serialized vector<double>
         biases BLOB NOT NULL,       -- serialized vector<double>
@@ -243,22 +244,18 @@ asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
             std::string layer_sizes_str = layer_sizes_json.dump();
             sqlite3_bind_text(stmt, 2, layer_sizes_str.c_str(), -1, SQLITE_STATIC);
 
-            // Set correct predictions and training_epochs to 0
-            sqlite3_bind_double(stmt, 3, 0.0);
-            sqlite3_bind_int(stmt, 4, 0);
-
             sqlite3_bind_blob(
-                stmt, 5, network.weights.data(),
+                stmt, 3, network.weights.data(),
                 static_cast<int>(network.weights.size() * sizeof(double)), SQLITE_STATIC
             );
             sqlite3_bind_blob(
-                stmt, 6, network.biases.data(),
+                stmt, 4, network.biases.data(),
                 static_cast<int>(network.biases.size() * sizeof(double)), SQLITE_STATIC
             );
 
             nlohmann::json activations_json = network.activations;
             std::string activations_str = activations_json.dump();
-            sqlite3_bind_text(stmt, 7, activations_str.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 5, activations_str.c_str(), -1, SQLITE_STATIC);
 
             int rc = sqlite3_step(stmt);
             if (rc != SQLITE_DONE) {
@@ -305,18 +302,19 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
 
             network.correct_predictions = sqlite3_column_int(stmt, 4);
             network.training_epochs = sqlite3_column_int(stmt, 5);
+            network.cost = sqlite3_column_double(stmt, 6);
 
-            const void* weights_blob = sqlite3_column_blob(stmt, 6);
-            int weights_size = sqlite3_column_bytes(stmt, 6);
+            const void* weights_blob = sqlite3_column_blob(stmt, 7);
+            int weights_size = sqlite3_column_bytes(stmt, 7);
             network.weights.resize(weights_size / sizeof(double));
             std::memcpy(network.weights.data(), weights_blob, static_cast<size_t>(weights_size));
 
-            const void* biases_blob = sqlite3_column_blob(stmt, 7);
-            int biases_size = sqlite3_column_bytes(stmt, 7);
+            const void* biases_blob = sqlite3_column_blob(stmt, 8);
+            int biases_size = sqlite3_column_bytes(stmt, 8);
             network.biases.resize(biases_size / sizeof(double));
             std::memcpy(network.biases.data(), biases_blob, static_cast<size_t>(biases_size));
             std::string activations_str =
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
             nlohmann::json activations_json = nlohmann::json::parse(activations_str);
             network.activations = activations_json.get<std::vector<std::string>>();
 
@@ -353,6 +351,7 @@ asio::awaitable<DBResult<std::vector<NetworkSummary>>> Db::get_networks() {
 
                 network.correct_predictions = sqlite3_column_int(stmt, 4);
                 network.training_epochs = sqlite3_column_int(stmt, 5);
+                network.cost = sqlite3_column_double(stmt, 6);
 
                 networks.push_back(network);
             }
@@ -406,17 +405,17 @@ void Db::create_statements() {
 
     const char* add_network_sql = R"(
     INSERT INTO networks (
-        name, layer_sizes, correct_predictions, training_epochs, weights, biases, activations
-    ) VALUES (?, ?, ?, ?, ?, ?, ?);)";
+        name, layer_sizes, weights, biases, activations
+    ) VALUES (?, ?, ?, ?, ?);)";
     add_stmt(add_network_sql, "add_network");
 
     const char* get_network_by_id_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, training_epochs, weights, biases, activations
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations
     FROM networks WHERE id = ?;)";
     add_stmt(get_network_by_id_sql, "get_network_by_id");
 
     const char* get_networks_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, training_epochs FROM networks;)";
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs FROM networks;)";
     add_stmt(get_networks_sql, "get_networks");
 
     const char* delete_network_by_id_sql = R"(
@@ -432,6 +431,7 @@ void to_json(json& j, const NetworkInfo& v) {
         { "layet_sizes", v.layer_sizes },
         { "correct_predictions", v.correct_predictions },
         { "training_epochs", v.training_epochs },
+        { "cost", v.cost },
         { "weights", v.weights },
         { "biases", v.biases },
         { "activations", v.activations },
@@ -446,5 +446,6 @@ void to_json(json& j, const NetworkSummary& v) {
         { "layer_sizes", v.layer_sizes },
         { "correct_predictions", v.correct_predictions },
         { "training_epochs", v.training_epochs },
+        { "cost", v.cost },
     };
 }

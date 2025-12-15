@@ -35,7 +35,7 @@
       <div class="flex flex-col gap-3">
         <div class="bg-accent rounded-lg p-3">
           <div class="text-sm font-semibold">
-            {"0.0000"}
+            {network.cost}
           </div>
           <div class="text-xs text-muted-foreground">Cost</div>
         </div>
@@ -55,7 +55,7 @@
       <Trash2 class="w-4 h-4" />
       Delete
     </Button>
-    <Button variant="secondary" size="sm" class="gap-2">
+    <Button size="sm" class="gap-2">
       <ExternalLink class="w-4 h-4" />
       View Details
     </Button>

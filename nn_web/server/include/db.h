@@ -34,6 +34,7 @@ struct NetworkInfo {
     std::vector<int> layer_sizes;
     int correct_predictions;
     int training_epochs;
+    double cost;
     std::vector<double> weights;
     std::vector<double> biases;
     std::vector<std::string> activations;
@@ -46,6 +47,7 @@ struct NetworkSummary {
     std::vector<int> layer_sizes;
     int correct_predictions;
     int training_epochs;
+    double cost;
 };
 
 void to_json(json& j, const NetworkInfo& v);

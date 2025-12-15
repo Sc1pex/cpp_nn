@@ -6,6 +6,7 @@ export type NetworkSummary = {
   layer_sizes: number[];
   correct_predictions: number;
   training_epochs: number;
+  cost: number;
 };
 
 export class NetworkSummaries {

@@ -165,6 +165,10 @@ void App::add_network_routes() {
                         res.set_body(error_json.dump());
                         co_return;
                     } else {
+                        spdlog::error(
+                            "Failed to add network: {} {}", add_res.error().message,
+                            add_res.error().code
+                        );
                         res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
                         res.set_body("Failed to add network");
                         co_return;
