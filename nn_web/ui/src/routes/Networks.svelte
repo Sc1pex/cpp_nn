@@ -29,7 +29,19 @@
     return err;
   }
 
-  const defaultName = $derived(`Network ${data.networks.length + 1}`);
+  const defaultName = $derived.by(() => {
+    let smallest = 0;
+    for (const network of data.networks) {
+      const match = network.name.match(/Network (\d+)/);
+      if (match) {
+        const number = parseInt(match[1], 10);
+        if (number >= smallest) {
+          smallest = number;
+        }
+      }
+    }
+    return `Network ${smallest + 1}`;
+  });
 
   const handleDeleteNetwork = async () => {
     if (networkToDelete) {
