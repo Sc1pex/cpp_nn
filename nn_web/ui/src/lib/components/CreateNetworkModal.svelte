@@ -5,16 +5,19 @@
   import { Plus, Trash2 } from "@lucide/svelte";
   import { Label } from "./ui/label";
   import { Input } from "./ui/input";
+  import type { FieldError } from "$lib/data/common";
 
   type Props = {
     onSubmit: (
       name: string,
       layer_sizes: number[],
       activations: string[],
-    ) => void | Promise<void>;
+    ) => Promise<FieldError | null>;
+    defaultName: string;
   };
 
-  let { onSubmit }: Props = $props();
+  let { onSubmit, defaultName }: Props = $props();
+  let field_error = $state<FieldError | null>(null);
 
   type Layer = {
     neurons: number;
@@ -22,6 +25,10 @@
     fixed: boolean;
   };
   const activationOptions = ["relu", "sigmoid", "none"] as const;
+
+  $effect(() => {
+    name = defaultName;
+  });
 
   let name = $state("");
   let layers = $state<Layer[]>([
@@ -49,7 +56,7 @@
     const layer_sizes = layers.map((layer) => layer.neurons);
     const activations = layers.slice(1).map((layer) => layer.activation);
 
-    await onSubmit(name, layer_sizes, activations);
+    field_error = await onSubmit(name, layer_sizes, activations);
   }
 </script>
 
@@ -66,6 +73,9 @@
         bind:value={name}
         placeholder="Enter network name"
       />
+      {#if field_error && field_error.field === "name"}
+        <p class="text-sm text-destructive">{field_error.error}</p>
+      {/if}
     </div>
 
     <div class="grid gap-2">

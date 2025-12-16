@@ -122,6 +122,17 @@ void App::add_network_routes() {
                 json j = json::parse(req.body);
                 AddNetworkRequest add_req = j.get<AddNetworkRequest>();
 
+                if (add_req.name.length() < 2) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    auto error_json = json{
+                        { "field", "name" },
+                        { "error", "Name must be at least 2 characters long" },
+                    };
+                    res.set_body(error_json.dump());
+                    co_return;
+                }
+
                 auto activations_opt = nn::strs_to_activation(add_req.activations);
                 if (!activations_opt) {
                     res.status = httc::StatusCode::BAD_REQUEST;

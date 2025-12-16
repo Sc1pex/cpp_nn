@@ -7,20 +7,31 @@
   import CreateNetworkModal from "$lib/components/CreateNetworkModal.svelte";
 
   const data = new NetworkSummaries();
-  $inspect(data.networks);
+  let showCreateModal = $state(false);
 
   async function handleCreateNetwork(
     name: string,
     layer_sizes: number[],
     activations: string[],
   ) {
-    await data.add(name, layer_sizes, activations);
-    await data.fetch();
+    const err = await data.add(name, layer_sizes, activations);
+    if (err == null) {
+      showCreateModal = false;
+      await data.fetch();
+    }
+    // TODO: Show error if it's not on the name field
+
+    return err;
   }
+
+  const defaultName = $derived(`Network ${data.networks.length + 1}`);
 </script>
 
 <div class="flex flex-col gap-6">
-  <Dialog.Root>
+  <Dialog.Root
+    open={showCreateModal}
+    onOpenChange={(open) => (showCreateModal = open)}
+  >
     <Dialog.Trigger class="flex justify-end">
       <Button>
         <Plus class="w-4 h-4" />
@@ -28,7 +39,7 @@
       </Button>
     </Dialog.Trigger>
 
-    <CreateNetworkModal onSubmit={handleCreateNetwork} />
+    <CreateNetworkModal onSubmit={handleCreateNetwork} {defaultName} />
   </Dialog.Root>
 
   {#if data.loading}
