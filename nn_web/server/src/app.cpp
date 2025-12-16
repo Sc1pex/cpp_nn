@@ -212,6 +212,12 @@ void App::add_network_routes() {
                     co_return;
                 }
 
+                if (!delete_res.value()) {
+                    res.status = httc::StatusCode::NOT_FOUND;
+                    res.set_body("Network not found");
+                    co_return;
+                }
+
                 co_return;
             } }
     );

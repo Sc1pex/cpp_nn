@@ -1,13 +1,18 @@
 <script lang="ts">
   import NetworkSummary from "$lib/components/NetworkSummary.svelte";
   import * as Dialog from "$lib/components/ui/dialog/index";
-  import { Button } from "$lib/components/ui/button/index";
-  import { NetworkSummaries } from "$lib/data/networks.svelte";
+  import { Button, buttonVariants } from "$lib/components/ui/button/index";
+  import {
+    NetworkSummaries,
+    type TNetworkSummary,
+  } from "$lib/data/networks.svelte";
   import { Plus } from "@lucide/svelte";
   import CreateNetworkModal from "$lib/components/CreateNetworkModal.svelte";
 
   const data = new NetworkSummaries();
   let showCreateModal = $state(false);
+
+  let networkToDelete: TNetworkSummary | null = $state(null);
 
   async function handleCreateNetwork(
     name: string,
@@ -25,6 +30,14 @@
   }
 
   const defaultName = $derived(`Network ${data.networks.length + 1}`);
+
+  const handleDeleteNetwork = async () => {
+    if (networkToDelete) {
+      await data.delete(networkToDelete.id);
+      networkToDelete = null;
+      await data.fetch();
+    }
+  };
 </script>
 
 <div class="flex flex-col gap-6">
@@ -46,7 +59,35 @@
     <div>Loading networks...</div>
   {:else}
     {#each data.networks as network (network.id)}
-      <NetworkSummary {network} />
+      <NetworkSummary
+        {network}
+        onDelete={(network) => (networkToDelete = network)}
+      />
     {/each}
   {/if}
+
+  <Dialog.Root
+    open={networkToDelete !== null}
+    onOpenChange={(open) => {
+      if (!open) networkToDelete = null;
+    }}
+  >
+    <Dialog.Content>
+      <Dialog.Header>
+        <Dialog.Title
+          >Are you sure you want to delete {networkToDelete?.name}</Dialog.Title
+        >
+        <Dialog.Description>This action cannot be undone.</Dialog.Description>
+      </Dialog.Header>
+
+      <Dialog.Footer>
+        <Dialog.Close class={buttonVariants({ variant: "outline" })}>
+          Cancel
+        </Dialog.Close>
+        <Button variant="destructive" onclick={handleDeleteNetwork}
+          >Delete Network</Button
+        >
+      </Dialog.Footer>
+    </Dialog.Content>
+  </Dialog.Root>
 </div>

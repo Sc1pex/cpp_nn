@@ -1,10 +1,14 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button/index";
   import * as Card from "$lib/components/ui/card/index";
-  import type { NetworkSummary } from "$lib/data/networks.svelte";
+  import type { TNetworkSummary } from "$lib/data/networks.svelte";
   import { ExternalLink, Trash2 } from "@lucide/svelte";
 
-  let { network }: { network: NetworkSummary } = $props();
+  type Props = {
+    network: TNetworkSummary;
+    onDelete: (network: TNetworkSummary) => void;
+  };
+  let { network, onDelete }: Props = $props();
 
   const correctCount = $derived(network.correct_predictions);
   const accuracy = $derived(correctCount / 10000);
@@ -51,7 +55,12 @@
   </Card.Content>
 
   <Card.Footer class="flex justify-between pt-4">
-    <Button variant="destructive" size="sm" class="gap-2">
+    <Button
+      variant="destructive"
+      size="sm"
+      class="gap-2"
+      onclick={() => onDelete(network)}
+    >
       <Trash2 class="w-4 h-4" />
       Delete
     </Button>

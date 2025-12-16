@@ -369,9 +369,9 @@ asio::awaitable<DBResult<std::vector<NetworkSummary>>> Db::get_networks() {
     );
 }
 
-asio::awaitable<DBResult<void>> Db::delete_network_by_id(const int id) {
-    co_return co_await run_on_pool<void>(
-        [this, id]() -> std::expected<void, DBError> {
+asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
+    co_return co_await run_on_pool<bool>(
+        [this, id]() -> std::expected<bool, DBError> {
             sqlite3_stmt* stmt = m_stmts["delete_network_by_id"];
 
             sqlite3_bind_int(stmt, 1, id);
@@ -382,8 +382,10 @@ asio::awaitable<DBResult<void>> Db::delete_network_by_id(const int id) {
                 return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
             }
 
+            int rows_affected = sqlite3_changes(m_db);
             sqlite3_reset(stmt);
-            return {};
+
+            return rows_affected > 0;
         },
         m_pool
     );

@@ -1,6 +1,6 @@
 import { apiUrl, type FieldError } from "./common";
 
-export type NetworkSummary = {
+export type TNetworkSummary = {
   id: number;
   name: string;
   layer_sizes: number[];
@@ -10,7 +10,7 @@ export type NetworkSummary = {
 };
 
 export class NetworkSummaries {
-  networks = $state<NetworkSummary[]>([]);
+  networks = $state<TNetworkSummary[]>([]);
   loading = $state(false);
 
   constructor() {
@@ -24,7 +24,11 @@ export class NetworkSummaries {
     this.loading = false;
   }
 
-  async add(name: string, layer_sizes: number[], activations: string[]): Promise<FieldError | null> {
+  async add(
+    name: string,
+    layer_sizes: number[],
+    activations: string[],
+  ): Promise<FieldError | null> {
     try {
       const res = await fetch(apiUrl("networks"), {
         method: "POST",
