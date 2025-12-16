@@ -154,8 +154,14 @@ void App::add_network_routes() {
                     co_return;
                 }
 
-                nn::Network network =
+                auto network_opt =
                     nn::Network::new_random(add_req.layer_sizes, activations_opt.value());
+                if (!network_opt.has_value()) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    co_return;
+                }
+                auto network = network_opt.value();
 
                 AddNetwork db_network;
                 db_network.name = add_req.name;

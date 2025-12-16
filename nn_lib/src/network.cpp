@@ -3,11 +3,12 @@
 
 namespace nn {
 
-Network Network::new_random(
+std::optional<Network> Network::new_random(
     const std::vector<int>& layer_sizes, const std::vector<Activation>& activations
 ) {
-    assert(layer_sizes.size() >= 2);
-    assert(layer_sizes.size() - 1 == activations.size());
+    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != activations.size()) {
+        return std::nullopt;
+    }
 
     std::vector<MatrixXd> weights;
     std::vector<VectorXd> biases;
@@ -19,6 +20,17 @@ Network Network::new_random(
 
         weights.push_back(W);
         biases.push_back(b);
+    }
+    return Network(weights, biases, activations);
+}
+
+std::optional<Network> Network::from_data(
+    const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
+    const std::vector<Activation>& activations
+) {
+    if (weights.size() == 0 || weights.size() != biases.size()
+        || weights.size() != activations.size()) {
+        return std::nullopt;
     }
     return Network(weights, biases, activations);
 }

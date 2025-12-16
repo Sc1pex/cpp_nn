@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <optional>
 #include <vector>
 #include "activation.h"
 
@@ -11,12 +12,12 @@ using Eigen::VectorXd;
 
 class Network {
 public:
-    Network(
+    static std::optional<Network> from_data(
         const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
         const std::vector<Activation>& activations
     );
 
-    static Network
+    static std::optional<Network>
         new_random(const std::vector<int>& layer_sizes, const std::vector<Activation>& activations);
 
     MatrixXd feed_forward(const MatrixXd& input) const;
@@ -25,6 +26,11 @@ public:
     std::vector<double> dump_biases();
 
 private:
+    Network(
+        const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
+        const std::vector<Activation>& activations
+    );
+
     std::vector<MatrixXd> m_weights;
     std::vector<VectorXd> m_biases;
     std::vector<Activation> m_activations;
