@@ -11,6 +11,7 @@ public:
 
 private:
     void add_network_routes();
+    void add_data_routes();
 
 private:
     std::shared_ptr<httc::Router> m_router;

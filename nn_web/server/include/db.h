@@ -27,7 +27,7 @@ struct AddNetwork {
     std::vector<std::string> activations;
 };
 
-struct NetworkInfo {
+struct NetworkFull {
     int id;
     std::string name;
     std::string created_at;
@@ -40,7 +40,18 @@ struct NetworkInfo {
     std::vector<std::string> activations;
 };
 
-struct NetworkSummary {
+struct NetworkInfo {
+    int id;
+    std::string name;
+    std::string created_at;
+    std::vector<int> layer_sizes;
+    int correct_predictions;
+    int training_epochs;
+    double cost;
+    std::vector<std::string> activations;
+};
+
+struct NetworkListItem {
     int id;
     std::string name;
     std::string created_at;
@@ -50,8 +61,15 @@ struct NetworkSummary {
     double cost;
 };
 
+struct Sample {
+    std::vector<uint8_t> input;
+    int expected_output;
+};
+
+void to_json(json& j, const NetworkFull& v);
 void to_json(json& j, const NetworkInfo& v);
-void to_json(json& j, const NetworkSummary& v);
+void to_json(json& j, const NetworkListItem& v);
+void to_json(json& j, const Sample& v);
 
 class Db {
 public:
@@ -62,9 +80,13 @@ public:
     ~Db();
 
     asio::awaitable<DBResult<void>> add_network(const AddNetwork&& network);
+    asio::awaitable<DBResult<std::optional<NetworkFull>>> get_full_network_by_id(const int id);
     asio::awaitable<DBResult<std::optional<NetworkInfo>>> get_network_by_id(const int id);
-    asio::awaitable<DBResult<std::vector<NetworkSummary>>> get_networks();
+    asio::awaitable<DBResult<std::vector<NetworkListItem>>> get_networks();
     asio::awaitable<DBResult<bool>> delete_network_by_id(const int id);
+
+    asio::awaitable<DBResult<std::optional<Sample>>> get_train_sample_by_index(const int index);
+    asio::awaitable<DBResult<std::optional<Sample>>> get_test_sample_by_index(const int index);
 
 private:
     bool check_data_exists();

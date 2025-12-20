@@ -304,6 +304,50 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
             network.training_epochs = sqlite3_column_int(stmt, 5);
             network.cost = sqlite3_column_double(stmt, 6);
 
+            std::string activations_str =
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+            nlohmann::json activations_json = nlohmann::json::parse(activations_str);
+            network.activations = activations_json.get<std::vector<std::string>>();
+
+            sqlite3_reset(stmt);
+            return network;
+        },
+        m_pool
+    );
+}
+
+asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id(const int id) {
+    co_return co_await run_on_pool<std::optional<NetworkFull>>(
+        [this, id]() -> std::expected<std::optional<NetworkFull>, DBError> {
+            sqlite3_stmt* stmt = m_stmts["get_full_network_by_id"];
+
+            sqlite3_bind_int(stmt, 1, id);
+
+            int rc = sqlite3_step(stmt);
+            if (rc != SQLITE_ROW) {
+                rc = sqlite3_extended_errcode(m_db);
+                sqlite3_reset(stmt);
+                if (rc == SQLITE_DONE) {
+                    return std::nullopt;
+                } else {
+                    return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+                }
+            }
+
+            NetworkFull network;
+            network.id = sqlite3_column_int(stmt, 0);
+            network.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            network.created_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+
+            std::string layer_sizes_str =
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+            nlohmann::json layer_sizes_json = nlohmann::json::parse(layer_sizes_str);
+            network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
+
+            network.correct_predictions = sqlite3_column_int(stmt, 4);
+            network.training_epochs = sqlite3_column_int(stmt, 5);
+            network.cost = sqlite3_column_double(stmt, 6);
+
             const void* weights_blob = sqlite3_column_blob(stmt, 7);
             int weights_size = sqlite3_column_bytes(stmt, 7);
             network.weights.resize(weights_size / sizeof(double));
@@ -313,6 +357,7 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
             int biases_size = sqlite3_column_bytes(stmt, 8);
             network.biases.resize(biases_size / sizeof(double));
             std::memcpy(network.biases.data(), biases_blob, static_cast<size_t>(biases_size));
+
             std::string activations_str =
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
             nlohmann::json activations_json = nlohmann::json::parse(activations_str);
@@ -325,12 +370,12 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
     );
 }
 
-asio::awaitable<DBResult<std::vector<NetworkSummary>>> Db::get_networks() {
-    co_return co_await run_on_pool<std::vector<NetworkSummary>>(
-        [this]() -> std::expected<std::vector<NetworkSummary>, DBError> {
+asio::awaitable<DBResult<std::vector<NetworkListItem>>> Db::get_networks() {
+    co_return co_await run_on_pool<std::vector<NetworkListItem>>(
+        [this]() -> std::expected<std::vector<NetworkListItem>, DBError> {
             sqlite3_stmt* stmt = m_stmts["get_networks"];
 
-            std::vector<NetworkSummary> networks;
+            std::vector<NetworkListItem> networks;
 
             int rc;
             while (true) {
@@ -339,7 +384,7 @@ asio::awaitable<DBResult<std::vector<NetworkSummary>>> Db::get_networks() {
                     break;
                 }
 
-                NetworkSummary network;
+                NetworkListItem network;
                 network.id = sqlite3_column_int(stmt, 0);
                 network.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
                 network.created_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
@@ -391,6 +436,74 @@ asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
     );
 }
 
+asio::awaitable<DBResult<std::optional<Sample>>> Db::get_train_sample_by_index(const int index) {
+    co_return co_await run_on_pool<std::optional<Sample>>(
+        [this, index]() -> std::expected<std::optional<Sample>, DBError> {
+            sqlite3_stmt* stmt = m_stmts["get_train_sample_by_index"];
+
+            sqlite3_bind_int(stmt, 1, index);
+
+            int rc = sqlite3_step(stmt);
+            if (rc != SQLITE_ROW) {
+                rc = sqlite3_extended_errcode(m_db);
+                sqlite3_reset(stmt);
+                if (rc == SQLITE_DONE) {
+                    return std::nullopt;
+                } else {
+                    return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+                }
+            }
+
+            Sample sample;
+
+            const void* input_blob = sqlite3_column_blob(stmt, 0);
+            int input_size = sqlite3_column_bytes(stmt, 0);
+            sample.input.resize(input_size);
+            std::memcpy(sample.input.data(), input_blob, input_size);
+
+            sample.expected_output = sqlite3_column_int(stmt, 1);
+
+            sqlite3_reset(stmt);
+            return sample;
+        },
+        m_pool
+    );
+}
+
+asio::awaitable<DBResult<std::optional<Sample>>> Db::get_test_sample_by_index(const int index) {
+    co_return co_await run_on_pool<std::optional<Sample>>(
+        [this, index]() -> std::expected<std::optional<Sample>, DBError> {
+            sqlite3_stmt* stmt = m_stmts["get_test_sample_by_index"];
+
+            sqlite3_bind_int(stmt, 1, index);
+
+            int rc = sqlite3_step(stmt);
+            if (rc != SQLITE_ROW) {
+                rc = sqlite3_extended_errcode(m_db);
+                sqlite3_reset(stmt);
+                if (rc == SQLITE_DONE) {
+                    return std::nullopt;
+                } else {
+                    return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+                }
+            }
+
+            Sample sample;
+
+            const void* input_blob = sqlite3_column_blob(stmt, 0);
+            int input_size = sqlite3_column_bytes(stmt, 0);
+            sample.input.resize(input_size);
+            std::memcpy(sample.input.data(), input_blob, input_size);
+
+            sample.expected_output = sqlite3_column_int(stmt, 1);
+
+            sqlite3_reset(stmt);
+            return sample;
+        },
+        m_pool
+    );
+}
+
 void Db::create_statements() {
     auto add_stmt = [this](const char* sql, const char* name) {
         sqlite3_stmt* stmt;
@@ -412,9 +525,14 @@ void Db::create_statements() {
     add_stmt(add_network_sql, "add_network");
 
     const char* get_network_by_id_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, activations
     FROM networks WHERE id = ?;)";
     add_stmt(get_network_by_id_sql, "get_network_by_id");
+
+    const char* get_full_network_by_id_sql = R"(
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations
+    FROM networks WHERE id = ?;)";
+    add_stmt(get_full_network_by_id_sql, "get_full_network_by_id");
 
     const char* get_networks_sql = R"(
     SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs FROM networks;)";
@@ -423,9 +541,17 @@ void Db::create_statements() {
     const char* delete_network_by_id_sql = R"(
     DELETE FROM networks WHERE id = ?;)";
     add_stmt(delete_network_by_id_sql, "delete_network_by_id");
+
+    const char* get_train_sample_by_index_sql = R"(
+    SELECT input, output FROM train_data WHERE id = ?;)";
+    add_stmt(get_train_sample_by_index_sql, "get_train_sample_by_index");
+
+    const char* get_test_sample_by_index_sql = R"(
+    SELECT input, output FROM test_data WHERE id = ?;)";
+    add_stmt(get_test_sample_by_index_sql, "get_test_sample_by_index");
 }
 
-void to_json(json& j, const NetworkInfo& v) {
+void to_json(json& j, const NetworkFull& v) {
     j = json{
         { "id", v.id },
         { "name", v.name },
@@ -440,7 +566,7 @@ void to_json(json& j, const NetworkInfo& v) {
     };
 }
 
-void to_json(json& j, const NetworkSummary& v) {
+void to_json(json& j, const NetworkInfo& v) {
     j = json{
         { "id", v.id },
         { "name", v.name },
@@ -449,5 +575,25 @@ void to_json(json& j, const NetworkSummary& v) {
         { "correct_predictions", v.correct_predictions },
         { "training_epochs", v.training_epochs },
         { "cost", v.cost },
+        { "activations", v.activations },
+    };
+}
+
+void to_json(json& j, const NetworkListItem& v) {
+    j = json{
+        { "id", v.id },
+        { "name", v.name },
+        { "created_at", v.created_at },
+        { "layer_sizes", v.layer_sizes },
+        { "correct_predictions", v.correct_predictions },
+        { "training_epochs", v.training_epochs },
+        { "cost", v.cost },
+    };
+}
+
+void to_json(json& j, const Sample& v) {
+    j = json{
+        { "input", v.input },
+        { "expected_output", v.expected_output },
     };
 }

@@ -10,6 +10,7 @@
 #include <asio.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include "asio/awaitable.hpp"
 #include "httc/status.h"
 
 using json = nlohmann::json;
@@ -227,6 +228,111 @@ void App::add_network_routes() {
                 co_return;
             } }
     );
+
+    m_router->route(
+        "/api/networks/:id/predict",
+        httc::MethodWrapper<"POST">{
+            [this](const httc::Request& req, httc::Response& res) -> asio::awaitable<void> {
+                int network_id;
+                try {
+                    auto id_str = req.path_params.at("id");
+                    network_id = std::stoi(id_str);
+                } catch (const std::exception&) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.set_body("Invalid network ID");
+                    co_return;
+                }
+
+                auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
+                if (!network_res) {
+                    res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
+                    res.set_body("Failed to retrieve network");
+                    co_return;
+                }
+                if (!network_res.value()) {
+                    res.status = httc::StatusCode::NOT_FOUND;
+                    res.set_body("Network not found");
+                    co_return;
+                }
+                auto network_info = network_res.value().value();
+
+                // Should never be invalid since it was validated on insertion
+                auto activations = nn::strs_to_activation(network_info.activations).value();
+                auto network_opt = nn::Network::from_data(
+                    network_info.layer_sizes, network_info.weights, network_info.biases, activations
+                );
+                auto network = network_opt.value();
+
+                json j = json::parse(req.body);
+                std::vector<double> input = j.at("input").get<std::vector<double>>();
+
+                if (input.size() != 784) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.set_body("Input size must be 784");
+                    co_return;
+                }
+
+                auto input_matrix = Eigen::Map<Eigen::Matrix<double, 784, 1>>(input.data());
+                auto output = network.feed_forward(input_matrix);
+
+                json response_json;
+                response_json["output"] =
+                    std::vector<double>(output.data(), output.data() + output.size());
+                res.headers.set("Content-Type", "application/json");
+                res.set_body(response_json.dump());
+                co_return;
+            } }
+    );
+}
+
+void App::add_data_routes() {
+    m_router->route(
+        "/api/data/:source/:idx",
+        httc::MethodWrapper<"GET">(
+            [this](const httc::Request& req, httc::Response& res) -> asio::awaitable<void> {
+                int index;
+                try {
+                    auto idx_str = req.path_params.at("idx");
+                    index = std::stoi(idx_str);
+                } catch (const std::exception&) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.set_body("Invalid index");
+                    co_return;
+                }
+
+                std::expected<std::optional<Sample>, DBError> sample_res;
+
+                auto source = req.path_params.at("source");
+                if (source == "test") {
+                    sample_res = co_await m_state->db.get_test_sample_by_index(index);
+                } else if (source == "train") {
+                    sample_res = co_await m_state->db.get_train_sample_by_index(index);
+                } else {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.set_body("Invalid source");
+                    co_return;
+                }
+
+                if (!sample_res) {
+                    res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
+                    res.set_body("Failed to retrieve training sample");
+                    co_return;
+                }
+
+                if (!sample_res.value()) {
+                    res.status = httc::StatusCode::NOT_FOUND;
+                    res.set_body("Training sample not found");
+                    co_return;
+                }
+
+                json j = sample_res.value().value();
+                res.headers.set("Content-Type", "application/json");
+                res.set_body(j.dump());
+
+                co_return;
+            }
+        )
+    );
 }
 
 App::App() {
@@ -257,6 +363,7 @@ App::App() {
     );
 
     add_network_routes();
+    add_data_routes();
 }
 
 void App::run() {
