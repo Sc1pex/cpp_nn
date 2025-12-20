@@ -3,16 +3,16 @@
   import * as Dialog from "$lib/components/ui/dialog/index";
   import { Button, buttonVariants } from "$lib/components/ui/button/index";
   import {
-    NetworkSummaries,
-    type TNetworkSummary,
+    NetworkList,
+    type TNetworkListItem,
   } from "$lib/data/networks.svelte";
   import { Plus } from "@lucide/svelte";
   import CreateNetworkModal from "$lib/components/CreateNetworkModal.svelte";
 
-  const data = new NetworkSummaries();
+  const data = new NetworkList();
   let showCreateModal = $state(false);
 
-  let networkToDelete: TNetworkSummary | null = $state(null);
+  let networkToDelete: TNetworkListItem | null = $state(null);
 
   async function handleCreateNetwork(
     name: string,

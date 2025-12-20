@@ -1,12 +1,13 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button/index";
   import * as Card from "$lib/components/ui/card/index";
-  import type { TNetworkSummary } from "$lib/data/networks.svelte";
+  import type { TNetworkListItem } from "$lib/data/networks.svelte";
   import { ExternalLink, Trash2 } from "@lucide/svelte";
+  import { navigate } from "../../router";
 
   type Props = {
-    network: TNetworkSummary;
-    onDelete: (network: TNetworkSummary) => void;
+    network: TNetworkListItem;
+    onDelete: (network: TNetworkListItem) => void;
   };
   let { network, onDelete }: Props = $props();
 
@@ -37,7 +38,7 @@
       </div>
 
       <div class="flex flex-col gap-3">
-        <div class="bg-accent rounded-lg p-3">
+        <div class="bg-muted rounded-lg p-3">
           <div class="text-sm font-semibold">
             {network.cost}
           </div>
@@ -64,7 +65,13 @@
       <Trash2 class="w-4 h-4" />
       Delete
     </Button>
-    <Button size="sm" class="gap-2">
+    <Button
+      size="sm"
+      class="gap-2"
+      type="button"
+      onclick={() =>
+        navigate("/:id", { params: { id: network.id.toString() } })}
+    >
       <ExternalLink class="w-4 h-4" />
       View Details
     </Button>

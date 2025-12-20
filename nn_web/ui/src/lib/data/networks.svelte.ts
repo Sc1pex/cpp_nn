@@ -1,6 +1,6 @@
 import { apiUrl, type FieldError } from "./common";
 
-export type TNetworkSummary = {
+export type TNetworkListItem = {
   id: number;
   name: string;
   layer_sizes: number[];
@@ -9,8 +9,8 @@ export type TNetworkSummary = {
   cost: number;
 };
 
-export class NetworkSummaries {
-  networks = $state<TNetworkSummary[]>([]);
+export class NetworkList {
+  networks = $state<TNetworkListItem[]>([]);
   loading = $state(false);
 
   constructor() {
