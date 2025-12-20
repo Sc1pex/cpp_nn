@@ -13,8 +13,8 @@ using Eigen::VectorXd;
 class Network {
 public:
     static std::optional<Network> from_data(
-        const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
-        const std::vector<Activation>& activations
+        const std::vector<int>& layer_sizes, const std::vector<double>& weights,
+        const std::vector<double>& biases, const std::vector<Activation>& activations
     );
 
     static std::optional<Network>

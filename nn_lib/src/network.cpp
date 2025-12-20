@@ -25,14 +25,48 @@ std::optional<Network> Network::new_random(
 }
 
 std::optional<Network> Network::from_data(
-    const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
-    const std::vector<Activation>& activations
+    const std::vector<int>& layer_sizes, const std::vector<double>& weights,
+    const std::vector<double>& biases, const std::vector<Activation>& activations
 ) {
-    if (weights.size() == 0 || weights.size() != biases.size()
-        || weights.size() != activations.size()) {
+    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != activations.size()) {
         return std::nullopt;
     }
-    return Network(weights, biases, activations);
+
+    std::vector<MatrixXd> weight_matrices;
+    std::vector<VectorXd> bias_vectors;
+
+    size_t weight_index = 0;
+    size_t bias_index = 0;
+
+    for (size_t i = 0; i < layer_sizes.size() - 1; ++i) {
+        int rows = layer_sizes[i + 1];
+        int cols = layer_sizes[i];
+        size_t weight_count = rows * cols;
+
+        if (weight_index + weight_count > weights.size()) {
+            return std::nullopt;
+        }
+
+        MatrixXd W(rows, cols);
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                W(r, c) = weights[weight_index++];
+            }
+        }
+        weight_matrices.push_back(W);
+
+        if (bias_index + rows > biases.size()) {
+            return std::nullopt;
+        }
+
+        VectorXd b(rows);
+        for (int r = 0; r < rows; ++r) {
+            b(r) = biases[bias_index++];
+        }
+        bias_vectors.push_back(b);
+    }
+
+    return Network(weight_matrices, bias_vectors, activations);
 }
 
 Network::Network(
