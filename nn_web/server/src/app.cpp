@@ -7,6 +7,7 @@
 #include <httc/router.hpp>
 #include <httc/server.hpp>
 #include <httc/status.hpp>
+#include <httc/utils/file_handlers.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <nn_lib/activation.hpp>
@@ -334,7 +335,17 @@ void App::add_data_routes() {
     );
 }
 
-App::App() {
+void App::add_static_routes() {
+    m_router->route(
+        "/", httc::utils::FileHandler(std::format("{}/index.html", *m_static_assets_path))
+    );
+    m_router->route(
+        "/assets/*", httc::utils::DirectoryHandler(std::format("{}/assets", *m_static_assets_path))
+    );
+}
+
+App::App(std::optional<std::string_view> static_assets_path)
+: m_static_assets_path(static_assets_path) {
     m_state = std::make_shared<State>();
     m_router = std::make_shared<httc::Router>();
 
@@ -361,6 +372,9 @@ App::App() {
         }
     );
 
+    if (m_static_assets_path) {
+        add_static_routes();
+    }
     add_network_routes();
     add_data_routes();
 }
