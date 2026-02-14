@@ -3,7 +3,7 @@
 #include <Eigen/Core>
 #include <optional>
 #include <vector>
-#include "activation.h"
+#include "nn_lib/activation.hpp"
 
 namespace nn {
 

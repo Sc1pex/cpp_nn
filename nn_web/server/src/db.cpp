@@ -1,11 +1,10 @@
-#include "db.h"
+#include "db.hpp"
 #include <spdlog/spdlog.h>
 #include <asio.hpp>
 #include <expected>
 #include <functional>
-#include "idx.h"
+#include "idx.hpp"
 #include "nlohmann/json.hpp"
-#include "sqlite3.h"
 
 Db::Db(
     std::string_view db_file_path, std::string_view train_input_path,

@@ -1,4 +1,4 @@
-#include "idx.h"
+#include "idx.hpp"
 #include <endian.h>
 #include <fstream>
 #include <ios>

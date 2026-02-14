@@ -1,4 +1,4 @@
-#include "network.h"
+#include "nn_lib/network.hpp"
 #include <ranges>
 
 namespace nn {

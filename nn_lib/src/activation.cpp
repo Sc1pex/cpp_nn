@@ -1,4 +1,4 @@
-#include "activation.h"
+#include "nn_lib/activation.hpp"
 
 namespace nn {
 

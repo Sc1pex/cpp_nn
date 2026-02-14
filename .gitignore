@@ -1,7 +1,4 @@
-cdb-frags/
-.zig-cache/
-zig-out/
 .cache/
-compile_commands.json
+build/
 mnist_data/
 *.db

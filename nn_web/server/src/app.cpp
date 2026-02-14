@@ -1,17 +1,16 @@
-#include "app.h"
-#include <httc/request.h>
-#include <httc/response.h>
-#include <httc/router.h>
-#include <httc/server.h>
-#include <nn_lib/activation.h>
-#include <nn_lib/network.h>
+#include "app.hpp"
 #include <spdlog/spdlog.h>
 #include <sqlite3.h>
 #include <asio.hpp>
+#include <httc/request.hpp>
+#include <httc/response.hpp>
+#include <httc/router.hpp>
+#include <httc/server.hpp>
+#include <httc/status.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
-#include "asio/awaitable.hpp"
-#include "httc/status.h"
+#include <nn_lib/activation.hpp>
+#include <nn_lib/network.hpp>
 
 using json = nlohmann::json;
 

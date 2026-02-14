@@ -1,7 +1,7 @@
 #pragma once
 
-#include <httc/router.h>
-#include "state.h"
+#include <httc/router.hpp>
+#include "state.hpp"
 
 class App {
 public:
