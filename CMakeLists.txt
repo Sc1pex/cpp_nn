@@ -18,7 +18,7 @@ FetchContent_MakeAvailable(eigen)
 FetchContent_Declare(
     httc
     GIT_REPOSITORY https://github.com/Sc1pex/httc
-    GIT_TAG        v0.2.0
+    GIT_TAG        v0.3.0
 )
 FetchContent_MakeAvailable(httc)
 

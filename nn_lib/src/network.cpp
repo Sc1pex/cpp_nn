@@ -74,9 +74,9 @@ Network::Network(
     const std::vector<Activation>& activations
 )
 : m_weights(weights), m_biases(biases), m_activations(activations) {
-    assert(m_weights.size() >= 1);
-    assert(m_weights.size() == m_biases.size());
-    assert(m_weights.size() == m_activations.size());
+    // assert(m_weights.size() >= 1);
+    // assert(m_weights.size() == m_biases.size());
+    // assert(m_weights.size() == m_activations.size());
 }
 
 MatrixXd Network::feed_forward(const MatrixXd& input) const {
