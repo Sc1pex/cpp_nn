@@ -41,6 +41,7 @@ COPY nn_web/ui/package.json nn_web/ui/bun.lockb* ./
 COPY nn_web/ui/ ./
 
 RUN bun install
+ENV VITE_API_BASE_URL=""
 RUN bun run build
 
 FROM alpine:3.21
