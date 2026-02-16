@@ -53,6 +53,7 @@
       inputPixels = sample.input;
 
       renderDigit(canvasElement, sample.input);
+      runPrediction();
     });
   });
 </script>
@@ -95,6 +96,7 @@
         size="sm"
         onclick={() => {
           imageIndex = Math.floor(Math.random() * maxIndex) + 1;
+          runPrediction();
         }}
       >
         Random
