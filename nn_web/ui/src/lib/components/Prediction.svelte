@@ -61,10 +61,6 @@
 <Card.Root>
   <Card.Header>
     <Card.Title>Test Network</Card.Title>
-
-    <Card.Action>
-      <Button onclick={runPrediction}>Run Test</Button>
-    </Card.Action>
   </Card.Header>
   <Card.Content>
     <div class="mb-6">
