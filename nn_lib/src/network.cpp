@@ -86,9 +86,7 @@ MatrixXd Network::feed_forward(const MatrixXd& input) const {
         out = (W * out).colwise() + b;
         std::visit(
             [&out](auto&& activation) {
-                out = out.unaryExpr([&activation](double x) {
-                    return activation.function(x);
-                });
+                out = activation.function(out);
             },
             act
         );

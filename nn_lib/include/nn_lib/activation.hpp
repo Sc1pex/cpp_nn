@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cmath>
+#include <Eigen/Core>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -9,33 +9,35 @@
 
 namespace nn {
 
+using Eigen::MatrixXd;
+
 namespace activation {
 
 struct ReLU {
-    double function(double x) const {
-        return x > 0 ? x : 0;
+    MatrixXd function(const MatrixXd& x) const {
+        return x.cwiseMax(0.0);
     }
-    double derivative(double x) const {
-        return x > 0 ? 1.0 : 0.0;
+    MatrixXd derivative(const MatrixXd& x) const {
+        return (x.array() > 0).cast<double>();
     }
 };
 
 struct Sigmoid {
-    double function(double x) const {
-        return 1.0 / (1.0 + std::exp(-x));
+    MatrixXd function(const MatrixXd& x) const {
+        return 1.0 / (1.0 + (-x.array()).exp());
     }
-    double derivative(double x) const {
-        double s = function(x);
-        return s * (1.0 - s);
+    MatrixXd derivative(const MatrixXd& x) const {
+        MatrixXd s = function(x);
+        return s.array() * (1.0 - s.array());
     }
 };
 
 struct None {
-    double function(double x) const {
+    MatrixXd function(const MatrixXd& x) const {
         return x;
     }
-    double derivative(double) const {
-        return 1.0;
+    MatrixXd derivative(const MatrixXd& x) const {
+        return MatrixXd::Ones(x.rows(), x.cols());
     }
 };
 
