@@ -9,9 +9,9 @@
 
 namespace nn {
 
-using Eigen::MatrixXd;
+namespace hidden_activation {
 
-namespace activation {
+using Eigen::MatrixXd;
 
 struct ReLU {
     MatrixXd function(const MatrixXd& x) const {
@@ -43,9 +43,11 @@ struct None {
 
 }
 
-using Activation = std::variant<activation::ReLU, activation::Sigmoid, activation::None>;
+using HiddenActivation =
+    std::variant<hidden_activation::ReLU, hidden_activation::Sigmoid, hidden_activation::None>;
 
-std::optional<Activation> str_to_activation(std::string_view s);
-std::optional<std::vector<Activation>> strs_to_activation(const std::vector<std::string>& v);
+std::optional<HiddenActivation> str_to_hidden_activation(std::string_view s);
+std::optional<std::vector<HiddenActivation>>
+    strs_to_hidden_activation(const std::vector<std::string>& v);
 
 }

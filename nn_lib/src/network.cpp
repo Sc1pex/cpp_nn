@@ -4,9 +4,9 @@
 namespace nn {
 
 std::optional<Network> Network::new_random(
-    const std::vector<int>& layer_sizes, const std::vector<Activation>& activations
+    const std::vector<int>& layer_sizes, const std::vector<HiddenActivation>& hidden_activations
 ) {
-    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != activations.size()) {
+    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != hidden_activations.size()) {
         return std::nullopt;
     }
 
@@ -21,14 +21,14 @@ std::optional<Network> Network::new_random(
         weights.push_back(W);
         biases.push_back(b);
     }
-    return Network(weights, biases, activations);
+    return Network(weights, biases, hidden_activations);
 }
 
 std::optional<Network> Network::from_data(
     const std::vector<int>& layer_sizes, const std::vector<double>& weights,
-    const std::vector<double>& biases, const std::vector<Activation>& activations
+    const std::vector<double>& biases, const std::vector<HiddenActivation>& hidden_activations
 ) {
-    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != activations.size()) {
+    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != hidden_activations.size()) {
         return std::nullopt;
     }
 
@@ -66,14 +66,14 @@ std::optional<Network> Network::from_data(
         bias_vectors.push_back(b);
     }
 
-    return Network(weight_matrices, bias_vectors, activations);
+    return Network(weight_matrices, bias_vectors, hidden_activations);
 }
 
 Network::Network(
     const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
-    const std::vector<Activation>& activations
+    const std::vector<HiddenActivation>& hidden_activations
 )
-: m_weights(weights), m_biases(biases), m_activations(activations) {
+: m_weights(weights), m_biases(biases), m_hidden_activations(hidden_activations) {
     // assert(m_weights.size() >= 1);
     // assert(m_weights.size() == m_biases.size());
     // assert(m_weights.size() == m_activations.size());
@@ -82,7 +82,7 @@ Network::Network(
 MatrixXd Network::feed_forward(const MatrixXd& input) const {
     MatrixXd out = input;
 
-    for (auto [W, b, act] : std::views::zip(m_weights, m_biases, m_activations)) {
+    for (auto [W, b, act] : std::views::zip(m_weights, m_biases, m_hidden_activations)) {
         out = (W * out).colwise() + b;
         std::visit(
             [&out](auto&& activation) {

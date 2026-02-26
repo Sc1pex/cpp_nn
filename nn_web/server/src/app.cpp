@@ -134,7 +134,7 @@ void App::add_network_routes() {
                     co_return;
                 }
 
-                auto activations_opt = nn::strs_to_activation(add_req.activations);
+                auto activations_opt = nn::strs_to_hidden_activation(add_req.activations);
                 if (!activations_opt) {
                     res.status = httc::StatusCode::BAD_REQUEST;
                     res.headers.set("Content-Type", "application/json");
@@ -257,7 +257,7 @@ void App::add_network_routes() {
                 auto network_info = network_res.value().value();
 
                 // Should never be invalid since it was validated on insertion
-                auto activations = nn::strs_to_activation(network_info.activations).value();
+                auto activations = nn::strs_to_hidden_activation(network_info.activations).value();
                 auto network_opt = nn::Network::from_data(
                     network_info.layer_sizes, network_info.weights, network_info.biases, activations
                 );
