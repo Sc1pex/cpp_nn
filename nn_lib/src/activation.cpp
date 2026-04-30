@@ -4,27 +4,26 @@ namespace nn {
 
 std::optional<HiddenActivation> str_to_hidden_activation(std::string_view s) {
     if (s == "relu") {
-        return hidden_activation::ReLU{};
+        return activation::ReLU{};
     } else if (s == "sigmoid") {
-        return hidden_activation::Sigmoid{};
-    } else if (s == "none") {
-        return hidden_activation::None{};
+        return activation::Sigmoid{};
+    } else if (s == "linear") {
+        return activation::Linear{};
     } else {
         return std::nullopt;
     }
 }
 
-std::optional<std::vector<HiddenActivation>>
-    strs_to_hidden_activation(const std::vector<std::string>& v) {
-    std::vector<HiddenActivation> activations;
-    for (const auto& s : v) {
-        auto act_opt = str_to_hidden_activation(s);
-        if (!act_opt) {
-            return std::nullopt;
-        }
-        activations.push_back(act_opt.value());
+std::optional<OutputActivation> str_to_output_activation(std::string_view s) {
+    if (s == "softmax") {
+        return activation::SoftMax{};
+    } else if (s == "sigmoid") {
+        return activation::Sigmoid{};
+    } else if (s == "linear") {
+        return activation::Linear{};
+    } else {
+        return std::nullopt;
     }
-    return activations;
 }
 
 }

@@ -1,12 +1,14 @@
 #include "nn_lib/network.hpp"
+#include <numeric>
 #include <ranges>
 
 namespace nn {
 
 std::optional<Network> Network::new_random(
-    const std::vector<int>& layer_sizes, const std::vector<HiddenActivation>& hidden_activations
+    const std::vector<int>& layer_sizes, const std::vector<HiddenActivation>& hidden_activations,
+    const OutputActivation& output_activation
 ) {
-    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != hidden_activations.size()) {
+    if (!validate_inputs(layer_sizes, hidden_activations)) {
         return std::nullopt;
     }
 
@@ -21,14 +23,15 @@ std::optional<Network> Network::new_random(
         weights.push_back(W);
         biases.push_back(b);
     }
-    return Network(weights, biases, hidden_activations);
+    return Network(weights, biases, hidden_activations, output_activation);
 }
 
 std::optional<Network> Network::from_data(
     const std::vector<int>& layer_sizes, const std::vector<double>& weights,
-    const std::vector<double>& biases, const std::vector<HiddenActivation>& hidden_activations
+    const std::vector<double>& biases, const std::vector<HiddenActivation>& hidden_activations,
+    const OutputActivation& output_activation
 ) {
-    if (layer_sizes.size() < 2 || layer_sizes.size() - 1 != hidden_activations.size()) {
+    if (!validate_inputs(layer_sizes, weights, biases, hidden_activations)) {
         return std::nullopt;
     }
 
@@ -66,22 +69,61 @@ std::optional<Network> Network::from_data(
         bias_vectors.push_back(b);
     }
 
-    return Network(weight_matrices, bias_vectors, hidden_activations);
+    return Network(weight_matrices, bias_vectors, hidden_activations, output_activation);
 }
 
 Network::Network(
     const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
-    const std::vector<HiddenActivation>& hidden_activations
+    const std::vector<HiddenActivation>& hidden_activations,
+    const OutputActivation& output_activation
 )
-: m_weights(weights), m_biases(biases), m_hidden_activations(hidden_activations) {
-    // assert(m_weights.size() >= 1);
-    // assert(m_weights.size() == m_biases.size());
-    // assert(m_weights.size() == m_activations.size());
+: m_weights(weights), m_biases(biases), m_hidden_activations(hidden_activations),
+  m_output_activation(output_activation) {
+}
+
+bool Network::validate_inputs(
+    const std::vector<int>& layer_sizes, const std::vector<double>& weights,
+    const std::vector<double>& biases, const std::vector<HiddenActivation>& hidden_activations
+) {
+    if (!validate_inputs(layer_sizes, hidden_activations)) {
+        return false;
+    }
+
+    auto expected_biases = 0;
+    for (int i : layer_sizes | std::views::drop(1)) {
+        expected_biases += i;
+    }
+    auto expected_weights = 0;
+    for (const auto& zip : layer_sizes | std::views::slide(2)) {
+        expected_weights += zip[0] * zip[1];
+    }
+
+    if (weights.size() != expected_weights) {
+        return false;
+    }
+    if (biases.size() != expected_biases) {
+        return false;
+    }
+    return true;
+}
+
+bool Network::validate_inputs(
+    const std::vector<int>& layer_sizes, const std::vector<HiddenActivation>& hidden_activations
+) {
+    if (layer_sizes.size() < 2) {
+        return false;
+    }
+    if (layer_sizes.size() - 2 != hidden_activations.size()) {
+        return false;
+    }
+
+    return true;
 }
 
 MatrixXd Network::feed_forward(const MatrixXd& input) const {
     MatrixXd out = input;
 
+    // Feed forward the hidden layers
     for (auto [W, b, act] : std::views::zip(m_weights, m_biases, m_hidden_activations)) {
         out = (W * out).colwise() + b;
         std::visit(
@@ -91,6 +133,17 @@ MatrixXd Network::feed_forward(const MatrixXd& input) const {
             act
         );
     }
+
+    // Feed forward the output layer
+    auto out_w = m_weights.end() - 1;
+    auto out_b = m_biases.end() - 1;
+    out = (*out_w * out).colwise() + *out_b;
+    std::visit(
+        [&out](auto&& activation) {
+            out = activation.function(out);
+        },
+        m_output_activation
+    );
 
     return out;
 }

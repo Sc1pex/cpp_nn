@@ -19,27 +19,48 @@
   let { onSubmit, defaultName }: Props = $props();
   let field_error = $state<FieldError | null>(null);
 
-  type Layer = {
-    neurons: number;
-    activation: string;
-    fixed: boolean;
-  };
-  const activationOptions = ["relu", "sigmoid", "none"] as const;
+  type HiddenActivation = "relu" | "sigmoid" | "linear";
+  type OutputActivation = "softmax" | "sigmoid" | "linear";
 
+  type InputLayer = {
+    kind: "input";
+    neurons: 784;
+    fixed: true;
+  };
+  type HiddenLayer = {
+    kind: "hidden";
+    neurons: number;
+    fixed: false;
+    activation: HiddenActivation;
+  };
+  type OutputLayer = {
+    kind: "output";
+    neurons: 10;
+    fixed: true;
+    activation: OutputActivation;
+  };
+
+  function activationOptionsForLayer(layer: Layer) {
+    if (layer.kind === "input") return [];
+    if (layer.kind === "hidden") return ["relu", "sigmoid", "linear"];
+    if (layer.kind === "output") return ["softmax", "sigmoid", "linear"];
+  }
+
+  type Layer = InputLayer | HiddenLayer | OutputLayer;
+
+  let name = $state("");
+  let layers = $state<Layer[]>([
+    { kind: "input", neurons: 784, fixed: true },
+    { kind: "output", neurons: 10, activation: "softmax", fixed: true },
+  ]);
   $effect(() => {
     name = defaultName;
   });
 
-  let name = $state("");
-  let layers = $state<Layer[]>([
-    { neurons: 784, activation: "none", fixed: true },
-    { neurons: 10, activation: "sigmoid", fixed: true },
-  ]);
-
   function addLayer() {
     layers = [
       ...layers.slice(0, -1),
-      { neurons: 16, activation: "relu", fixed: false },
+      { kind: "hidden", neurons: 16, activation: "relu", fixed: false },
       layers[layers.length - 1],
     ];
   }
@@ -54,7 +75,9 @@
     e.preventDefault();
 
     const layer_sizes = layers.map((layer) => layer.neurons);
-    const activations = layers.slice(1).map((layer) => layer.activation);
+    const activations = layers
+      .filter((l) => l.kind != "input")
+      .map((layer) => layer.activation);
 
     field_error = await onSubmit(name, layer_sizes, activations);
   }
@@ -112,7 +135,7 @@
                 />
               </div>
 
-              {#if i !== 0}
+              {#if layer.kind != "input"}
                 <div>
                   <Label for="activation-{i}" class="mb-2">Activation</Label>
                   <Select.Root type="single" bind:value={layer.activation}>
@@ -120,7 +143,7 @@
                       {layer.activation || "Select activation"}
                     </Select.Trigger>
                     <Select.Content>
-                      {#each activationOptions as option}
+                      {#each activationOptionsForLayer(layer) as option}
                         <Select.Item value={option} label={option}>
                           {option}
                         </Select.Item>

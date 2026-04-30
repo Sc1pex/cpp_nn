@@ -2,14 +2,13 @@
 
 #include <Eigen/Core>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <variant>
 #include <vector>
 
 namespace nn {
 
-namespace hidden_activation {
+namespace activation {
 
 using Eigen::MatrixXd;
 
@@ -32,7 +31,7 @@ struct Sigmoid {
     }
 };
 
-struct None {
+struct Linear {
     MatrixXd function(const MatrixXd& x) const {
         return x;
     }
@@ -41,13 +40,39 @@ struct None {
     }
 };
 
+struct SoftMax {
+    MatrixXd function(const MatrixXd& x) const {
+        auto max_per_col = x.colwise().maxCoeff();
+        MatrixXd x_shifted = x.rowwise() - max_per_col;
+
+        MatrixXd exp_x = x_shifted.array().exp();
+
+        auto sum_per_col = exp_x.colwise().sum();
+        return exp_x.array().rowwise() / sum_per_col.array();
+    }
+};
+
 }
 
-using HiddenActivation =
-    std::variant<hidden_activation::ReLU, hidden_activation::Sigmoid, hidden_activation::None>;
+using HiddenActivation = std::variant<activation::ReLU, activation::Sigmoid, activation::Linear>;
+using OutputActivation = std::variant<activation::SoftMax, activation::Sigmoid, activation::Linear>;
 
 std::optional<HiddenActivation> str_to_hidden_activation(std::string_view s);
+std::optional<OutputActivation> str_to_output_activation(std::string_view s);
+
 std::optional<std::vector<HiddenActivation>>
-    strs_to_hidden_activation(const std::vector<std::string>& v);
+    strs_to_hidden_activation(std::ranges::input_range auto&& r)
+    requires std::convertible_to<std::ranges::range_reference_t<decltype(r)>, std::string_view>
+{
+    std::vector<HiddenActivation> activations;
+    for (const auto& s : r) {
+        auto act_opt = str_to_hidden_activation(s);
+        if (!act_opt) {
+            return std::nullopt;
+        }
+        activations.push_back(act_opt.value());
+    }
+    return activations;
+}
 
 }
