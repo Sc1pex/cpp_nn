@@ -57,6 +57,9 @@ struct SoftMax {
 using HiddenActivation = std::variant<activation::ReLU, activation::Sigmoid, activation::Linear>;
 using OutputActivation = std::variant<activation::SoftMax, activation::Sigmoid, activation::Linear>;
 
+Eigen::MatrixXd apply_activation(const HiddenActivation& activation, const Eigen::MatrixXd& m);
+Eigen::MatrixXd apply_activation(const OutputActivation& activation, const Eigen::MatrixXd& m);
+
 std::optional<HiddenActivation> str_to_hidden_activation(std::string_view s);
 std::optional<OutputActivation> str_to_output_activation(std::string_view s);
 

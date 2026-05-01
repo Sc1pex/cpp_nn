@@ -125,25 +125,13 @@ MatrixXd Network::feed_forward(const MatrixXd& input) const {
 
     // Feed forward the hidden layers
     for (auto [W, b, act] : std::views::zip(m_weights, m_biases, m_hidden_activations)) {
-        out = (W * out).colwise() + b;
-        std::visit(
-            [&out](auto&& activation) {
-                out = activation.function(out);
-            },
-            act
-        );
+        out = apply_activation(act, (W * out).colwise() + b);
     }
 
     // Feed forward the output layer
     auto out_w = m_weights.end() - 1;
     auto out_b = m_biases.end() - 1;
-    out = (*out_w * out).colwise() + *out_b;
-    std::visit(
-        [&out](auto&& activation) {
-            out = activation.function(out);
-        },
-        m_output_activation
-    );
+    out = apply_activation(m_output_activation, (*out_w * out).colwise() + *out_b);
 
     return out;
 }
