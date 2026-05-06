@@ -25,6 +25,7 @@ struct AddNetwork {
     std::vector<double> weights;
     std::vector<double> biases;
     std::vector<std::string> activations;
+    std::string loss;
 };
 
 struct NetworkFull {
@@ -38,6 +39,7 @@ struct NetworkFull {
     std::vector<double> weights;
     std::vector<double> biases;
     std::vector<std::string> activations;
+    std::string loss;
 };
 
 struct NetworkInfo {
@@ -49,6 +51,7 @@ struct NetworkInfo {
     int training_epochs;
     double cost;
     std::vector<std::string> activations;
+    std::string loss;
 };
 
 struct NetworkListItem {

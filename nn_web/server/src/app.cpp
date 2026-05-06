@@ -19,6 +19,7 @@ struct AddNetworkRequest {
     std::string name;
     std::vector<int> layer_sizes;
     std::vector<std::string> activations;
+    std::string loss;
 };
 
 struct FieldError {
@@ -51,6 +52,7 @@ void from_json(const json& j, AddNetworkRequest& req) {
     j.at("name").get_to(req.name);
     j.at("layer_sizes").get_to(req.layer_sizes);
     j.at("activations").get_to(req.activations);
+    j.at("loss").get_to(req.loss);
 }
 
 void App::add_network_routes() {
@@ -118,112 +120,129 @@ void App::add_network_routes() {
     );
     m_router->route(
         "/api/networks",
-        httc::MethodWrapper<"POST">{ [this](const httc::Request& req, httc::Response& res)
-                                         -> asio::awaitable<void> {
-            json j = json::parse(req.body);
-            AddNetworkRequest add_req = j.get<AddNetworkRequest>();
+        httc::MethodWrapper<"POST">{
+            [this](const httc::Request& req, httc::Response& res) -> asio::awaitable<void> {
+                json j = json::parse(req.body);
+                AddNetworkRequest add_req = j.get<AddNetworkRequest>();
 
-            if (add_req.name.length() < 2) {
-                res.status = httc::StatusCode::BAD_REQUEST;
-                res.headers.set("Content-Type", "application/json");
-                auto error_json = json{
-                    { "field", "name" },
-                    { "error", "Name must be at least 2 characters long" },
-                };
-                res.set_body(error_json.dump());
-                co_return;
-            }
-
-            if (add_req.activations.size() + 1 != add_req.layer_sizes.size()) {
-                res.status = httc::StatusCode::BAD_REQUEST;
-                res.headers.set("Content-Type", "application/json");
-                auto error_json = json{
-                    { "field", "activations" },
-                    { "error", "Invalid number of activations" },
-                };
-                res.set_body(error_json.dump());
-                co_return;
-            }
-
-            auto hidden_activations_view =
-                add_req.activations | std::views::take(add_req.activations.size() - 1);
-            auto hidden_activations_opt = nn::strs_to_hidden_activation(hidden_activations_view);
-            if (!hidden_activations_opt) {
-                res.status = httc::StatusCode::BAD_REQUEST;
-                res.headers.set("Content-Type", "application/json");
-                auto error_json = json{
-                    { "field", "activations" },
-                    { "error", "Invalid activation functions" },
-                };
-                res.set_body(error_json.dump());
-                co_return;
-            }
-
-            auto output_activation_req = add_req.activations.back();
-            auto output_activation_opt = nn::str_to_output_activation(output_activation_req);
-            if (!output_activation_opt) {
-                res.status = httc::StatusCode::BAD_REQUEST;
-                res.headers.set("Content-Type", "application/json");
-                auto error_json = json{
-                    { "field", "activations" },
-                    { "error", "Invalid activation functions" },
-                };
-                res.set_body(error_json.dump());
-                co_return;
-            }
-
-            auto layer_error = validate_network_layers(add_req.layer_sizes);
-            if (layer_error) {
-                res.status = httc::StatusCode::BAD_REQUEST;
-                res.headers.set("Content-Type", "application/json");
-                json error_json = *layer_error;
-                res.set_body(error_json.dump());
-                co_return;
-            }
-
-            auto network_opt = nn::Network::new_random(
-                add_req.layer_sizes, hidden_activations_opt.value(), output_activation_opt.value()
-            );
-            if (!network_opt.has_value()) {
-                res.status = httc::StatusCode::BAD_REQUEST;
-                res.headers.set("Content-Type", "application/json");
-                co_return;
-            }
-            auto network = network_opt.value();
-
-            AddNetwork db_network;
-            db_network.name = add_req.name;
-            db_network.layer_sizes = add_req.layer_sizes;
-            db_network.activations = add_req.activations;
-            db_network.weights = network.dump_weights();
-            db_network.biases = network.dump_biases();
-
-            auto add_res = co_await m_state->db.add_network(std::move(db_network));
-            if (!add_res) {
-                if (add_res.error().code == SQLITE_CONSTRAINT_UNIQUE) {
-                    auto error_json = json{
-                        { "field", "name" },
-                        { "error", "Network with this name already exists" },
-                    };
+                if (add_req.name.length() < 2) {
                     res.status = httc::StatusCode::BAD_REQUEST;
                     res.headers.set("Content-Type", "application/json");
+                    auto error_json = json{
+                        { "field", "name" },
+                        { "error", "Name must be at least 2 characters long" },
+                    };
                     res.set_body(error_json.dump());
                     co_return;
-                } else {
-                    spdlog::error(
-                        "Failed to add network: {} {}", add_res.error().message,
-                        add_res.error().code
-                    );
-                    res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-                    res.set_body("Failed to add network");
+                }
+
+                if (add_req.activations.size() + 1 != add_req.layer_sizes.size()) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    auto error_json = json{
+                        { "field", "activations" },
+                        { "error", "Invalid number of activations" },
+                    };
+                    res.set_body(error_json.dump());
                     co_return;
                 }
-            }
 
-            res.status = httc::StatusCode::CREATED;
-            res.set_body("Network added successfully");
-            co_return;
-        } }
+                auto hidden_activations_view =
+                    add_req.activations | std::views::take(add_req.activations.size() - 1);
+                auto hidden_activations_opt =
+                    nn::strs_to_hidden_activation(hidden_activations_view);
+                if (!hidden_activations_opt) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    auto error_json = json{
+                        { "field", "activations" },
+                        { "error", "Invalid activation functions" },
+                    };
+                    res.set_body(error_json.dump());
+                    co_return;
+                }
+
+                auto output_activation_req = add_req.activations.back();
+                auto output_activation_opt = nn::str_to_output_activation(output_activation_req);
+                if (!output_activation_opt) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    auto error_json = json{
+                        { "field", "activations" },
+                        { "error", "Invalid activation functions" },
+                    };
+                    res.set_body(error_json.dump());
+                    co_return;
+                }
+
+                auto layer_error = validate_network_layers(add_req.layer_sizes);
+                if (layer_error) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    json error_json = *layer_error;
+                    res.set_body(error_json.dump());
+                    co_return;
+                }
+
+                auto output_activation = output_activation_opt.value();
+
+                auto loss_opt = nn::str_to_loss(add_req.loss);
+                if (!loss_opt) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    auto error_json = json{
+                        { "field", "loss" },
+                        { "error", "Invalid loss function" },
+                    };
+                    res.set_body(error_json.dump());
+                    co_return;
+                }
+                auto loss = loss_opt.value();
+
+                auto network_opt = nn::Network::new_random(
+                    add_req.layer_sizes, hidden_activations_opt.value(), output_activation, loss
+                );
+                if (!network_opt.has_value()) {
+                    res.status = httc::StatusCode::BAD_REQUEST;
+                    res.headers.set("Content-Type", "application/json");
+                    co_return;
+                }
+                auto network = network_opt.value();
+
+                AddNetwork db_network;
+                db_network.name = add_req.name;
+                db_network.layer_sizes = add_req.layer_sizes;
+                db_network.activations = add_req.activations;
+                db_network.loss = add_req.loss;
+                db_network.weights = network.dump_weights();
+                db_network.biases = network.dump_biases();
+
+                auto add_res = co_await m_state->db.add_network(std::move(db_network));
+                if (!add_res) {
+                    if (add_res.error().code == SQLITE_CONSTRAINT_UNIQUE) {
+                        auto error_json = json{
+                            { "field", "name" },
+                            { "error", "Network with this name already exists" },
+                        };
+                        res.status = httc::StatusCode::BAD_REQUEST;
+                        res.headers.set("Content-Type", "application/json");
+                        res.set_body(error_json.dump());
+                        co_return;
+                    } else {
+                        spdlog::error(
+                            "Failed to add network: {} {}", add_res.error().message,
+                            add_res.error().code
+                        );
+                        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
+                        res.set_body("Failed to add network");
+                        co_return;
+                    }
+                }
+
+                res.status = httc::StatusCode::CREATED;
+                res.set_body("Network added successfully");
+                co_return;
+            } }
     );
     m_router->route(
         "/api/networks/:id",
@@ -293,10 +312,11 @@ void App::add_network_routes() {
                     nn::strs_to_hidden_activation(hidden_activations_view).value();
                 auto output_activation =
                     nn::str_to_output_activation(output_activation_str).value();
+                auto loss = nn::str_to_loss(network_info.loss).value();
 
                 auto network_opt = nn::Network::from_data(
                     network_info.layer_sizes, network_info.weights, network_info.biases,
-                    hidden_activations, output_activation
+                    hidden_activations, output_activation, loss
                 );
                 auto network = network_opt.value();
 

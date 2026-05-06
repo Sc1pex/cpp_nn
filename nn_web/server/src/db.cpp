@@ -61,7 +61,8 @@ void Db::create_tables() {
         
         weights BLOB NOT NULL,      -- serialized vector<double>
         biases BLOB NOT NULL,       -- serialized vector<double>
-        activations TEXT NOT NULL   -- JSON: ["relu", "relu", "sigmoid"]
+        activations TEXT NOT NULL,  -- "relu", "softmax", "sigmoid" or "linear"
+        loss TEXT NOT NULL          -- "cross_entropy" or "mse"
     );)";
     create_table(create_networks_table_sql);
 
@@ -256,6 +257,8 @@ asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
             std::string activations_str = activations_json.dump();
             sqlite3_bind_text(stmt, 5, activations_str.c_str(), -1, SQLITE_STATIC);
 
+            sqlite3_bind_text(stmt, 6, network.loss.c_str(), -1, SQLITE_STATIC);
+
             int rc = sqlite3_step(stmt);
             if (rc != SQLITE_DONE) {
                 rc = sqlite3_extended_errcode(m_db);
@@ -307,6 +310,8 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
             nlohmann::json activations_json = nlohmann::json::parse(activations_str);
             network.activations = activations_json.get<std::vector<std::string>>();
+
+            network.loss = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
 
             sqlite3_reset(stmt);
             return network;
@@ -361,6 +366,8 @@ asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
             nlohmann::json activations_json = nlohmann::json::parse(activations_str);
             network.activations = activations_json.get<std::vector<std::string>>();
+
+            network.loss = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 10));
 
             sqlite3_reset(stmt);
             return network;
@@ -519,17 +526,17 @@ void Db::create_statements() {
 
     const char* add_network_sql = R"(
     INSERT INTO networks (
-        name, layer_sizes, weights, biases, activations
-    ) VALUES (?, ?, ?, ?, ?);)";
+        name, layer_sizes, weights, biases, activations, loss
+    ) VALUES (?, ?, ?, ?, ?, ?);)";
     add_stmt(add_network_sql, "add_network");
 
     const char* get_network_by_id_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, activations
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, activations, loss
     FROM networks WHERE id = ?;)";
     add_stmt(get_network_by_id_sql, "get_network_by_id");
 
     const char* get_full_network_by_id_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations, loss
     FROM networks WHERE id = ?;)";
     add_stmt(get_full_network_by_id_sql, "get_full_network_by_id");
 
@@ -562,6 +569,7 @@ void to_json(json& j, const NetworkFull& v) {
         { "weights", v.weights },
         { "biases", v.biases },
         { "activations", v.activations },
+        { "loss", v.loss },
     };
 }
 
@@ -575,6 +583,7 @@ void to_json(json& j, const NetworkInfo& v) {
         { "training_epochs", v.training_epochs },
         { "cost", v.cost },
         { "activations", v.activations },
+        { "loss", v.loss },
     };
 }
 
