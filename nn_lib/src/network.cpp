@@ -1,12 +1,13 @@
 #include "nn_lib/network.hpp"
 #include <numeric>
 #include <ranges>
+#include "nn_lib/loss.hpp"
 
 namespace nn {
 
 std::optional<Network> Network::new_random(
     const std::vector<int>& layer_sizes, const std::vector<HiddenActivation>& hidden_activations,
-    const OutputActivation& output_activation
+    const OutputActivation& output_activation, const Loss& loss
 ) {
     if (!validate_inputs(layer_sizes, hidden_activations)) {
         return std::nullopt;
@@ -23,13 +24,13 @@ std::optional<Network> Network::new_random(
         weights.push_back(W);
         biases.push_back(b);
     }
-    return Network(weights, biases, hidden_activations, output_activation);
+    return Network(weights, biases, hidden_activations, output_activation, loss);
 }
 
 std::optional<Network> Network::from_data(
     const std::vector<int>& layer_sizes, const std::vector<double>& weights,
     const std::vector<double>& biases, const std::vector<HiddenActivation>& hidden_activations,
-    const OutputActivation& output_activation
+    const OutputActivation& output_activation, const Loss& loss
 ) {
     if (!validate_inputs(layer_sizes, weights, biases, hidden_activations)) {
         return std::nullopt;
@@ -69,16 +70,16 @@ std::optional<Network> Network::from_data(
         bias_vectors.push_back(b);
     }
 
-    return Network(weight_matrices, bias_vectors, hidden_activations, output_activation);
+    return Network(weight_matrices, bias_vectors, hidden_activations, output_activation, loss);
 }
 
 Network::Network(
     const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
     const std::vector<HiddenActivation>& hidden_activations,
-    const OutputActivation& output_activation
+    const OutputActivation& output_activation, const Loss& loss
 )
 : m_weights(weights), m_biases(biases), m_hidden_activations(hidden_activations),
-  m_output_activation(output_activation) {
+  m_output_activation(output_activation), m_loss(loss) {
 }
 
 bool Network::validate_inputs(
@@ -129,11 +130,22 @@ MatrixXd Network::feed_forward(const MatrixXd& input) const {
     }
 
     // Feed forward the output layer
-    auto out_w = m_weights.end() - 1;
-    auto out_b = m_biases.end() - 1;
-    out = apply_activation(m_output_activation, (*out_w * out).colwise() + *out_b);
+    auto out_w = m_weights.back();
+    auto out_b = m_biases.back();
+    out = apply_activation(m_output_activation, (out_w * out).colwise() + out_b);
 
     return out;
+}
+
+Prediction Network::predict(const MatrixXd& x, const MatrixXd& y) const {
+    auto a = feed_forward(x);
+    double loss = std::visit([&](auto&& l) { return l.function(a, y); }, m_loss);
+    return { a, loss };
+}
+
+double Network::calculate_loss(const MatrixXd& x, const MatrixXd& y) const {
+    auto a = feed_forward(x);
+    return std::visit([&](auto&& l) { return l.function(a, y); }, m_loss);
 }
 
 std::vector<double> Network::dump_weights() {

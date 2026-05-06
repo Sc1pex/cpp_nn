@@ -8,6 +8,7 @@ target_sources(nn_lib
     PRIVATE
         ./src/activation.cpp
         ./src/network.cpp
+        ./src/loss.cpp
 
     PUBLIC
         FILE_SET HEADERS

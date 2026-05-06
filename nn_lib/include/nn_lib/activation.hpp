@@ -43,9 +43,9 @@ struct Linear {
 struct SoftMax {
     MatrixXd function(const MatrixXd& x) const {
         auto max_per_col = x.colwise().maxCoeff();
-        MatrixXd x_shifted = x.rowwise() - max_per_col;
+        auto x_shifted = x.rowwise() - max_per_col;
 
-        MatrixXd exp_x = x_shifted.array().exp();
+        auto exp_x = x_shifted.array().exp();
 
         auto sum_per_col = exp_x.colwise().sum();
         return exp_x.array().rowwise() / sum_per_col.array();

@@ -4,27 +4,35 @@
 #include <optional>
 #include <vector>
 #include "nn_lib/activation.hpp"
+#include "nn_lib/loss.hpp"
 
 namespace nn {
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
+struct Prediction {
+    MatrixXd output;
+    double loss;
+};
+
 class Network {
 public:
     static std::optional<Network> from_data(
         const std::vector<int>& layer_sizes, const std::vector<double>& weights,
         const std::vector<double>& biases, const std::vector<HiddenActivation>& hidden_activations,
-        const OutputActivation& output_activation
+        const OutputActivation& output_activation, const Loss& loss
     );
 
     static std::optional<Network> new_random(
         const std::vector<int>& layer_sizes,
         const std::vector<HiddenActivation>& hidden_activations,
-        const OutputActivation& output_activation
+        const OutputActivation& output_activation, const Loss& loss
     );
 
     MatrixXd feed_forward(const MatrixXd& input) const;
+    Prediction predict(const MatrixXd& x, const MatrixXd& y) const;
+    double calculate_loss(const MatrixXd& x, const MatrixXd& y) const;
 
     std::vector<double> dump_weights();
     std::vector<double> dump_biases();
@@ -33,7 +41,7 @@ private:
     Network(
         const std::vector<MatrixXd>& weights, const std::vector<VectorXd>& biases,
         const std::vector<HiddenActivation>& hidden_activations,
-        const OutputActivation& output_activation
+        const OutputActivation& output_activation, const Loss& loss
     );
 
     static bool validate_inputs(
@@ -49,6 +57,7 @@ private:
     std::vector<VectorXd> m_biases;
     std::vector<HiddenActivation> m_hidden_activations;
     OutputActivation m_output_activation;
+    Loss m_loss;
 };
 
 }
