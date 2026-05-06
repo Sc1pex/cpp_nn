@@ -28,6 +28,7 @@ export class NetworkList {
     name: string,
     layer_sizes: number[],
     activations: string[],
+    loss: string,
   ): Promise<FieldError | null> {
     try {
       const res = await fetch(apiUrl("networks"), {
@@ -35,7 +36,7 @@ export class NetworkList {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, layer_sizes, activations }),
+        body: JSON.stringify({ name, layer_sizes, activations, loss }),
       });
 
       if (!res.ok) {

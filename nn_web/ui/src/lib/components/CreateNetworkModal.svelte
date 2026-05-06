@@ -12,6 +12,7 @@
       name: string,
       layer_sizes: number[],
       activations: string[],
+      loss: string,
     ) => Promise<FieldError | null>;
     defaultName: string;
   };
@@ -21,6 +22,7 @@
 
   type HiddenActivation = "relu" | "sigmoid" | "linear";
   type OutputActivation = "softmax" | "sigmoid" | "linear";
+  type LossFunction = "cross_entropy" | "mse";
 
   type InputLayer = {
     kind: "input";
@@ -49,6 +51,7 @@
   type Layer = InputLayer | HiddenLayer | OutputLayer;
 
   let name = $state("");
+  let loss = $state<LossFunction>("cross_entropy");
   let layers = $state<Layer[]>([
     { kind: "input", neurons: 784, fixed: true },
     { kind: "output", neurons: 10, activation: "softmax", fixed: true },
@@ -79,7 +82,7 @@
       .filter((l) => l.kind != "input")
       .map((layer) => layer.activation);
 
-    field_error = await onSubmit(name, layer_sizes, activations);
+    field_error = await onSubmit(name, layer_sizes, activations, loss);
   }
 </script>
 
@@ -88,17 +91,37 @@
     <Dialog.Title>Create New Network</Dialog.Title>
   </Dialog.Header>
   <form class="grid gap-4 py-4" onsubmit={handleSubmit}>
-    <div class="grid gap-2">
-      <Label for="network-name">Network Name</Label>
-      <Input
-        id="network-name"
-        type="text"
-        bind:value={name}
-        placeholder="Enter network name"
-      />
-      {#if field_error && field_error.field === "name"}
-        <p class="text-sm text-destructive">{field_error.error}</p>
-      {/if}
+    <div class="grid grid-cols-2 gap-4">
+      <div class="grid gap-2">
+        <Label for="network-name">Network Name</Label>
+        <Input
+          id="network-name"
+          type="text"
+          bind:value={name}
+          placeholder="Enter network name"
+        />
+        {#if field_error && field_error.field === "name"}
+          <p class="text-sm text-destructive">{field_error.error}</p>
+        {/if}
+      </div>
+
+      <div class="grid gap-2">
+        <Label for="network-loss">Loss Function</Label>
+        <Select.Root type="single" bind:value={loss}>
+          <Select.Trigger id="network-loss" class="w-full">
+            {loss === "cross_entropy" ? "Cross Entropy" : "MSE"}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="cross_entropy" label="Cross Entropy">
+              Cross Entropy
+            </Select.Item>
+            <Select.Item value="mse" label="MSE">MSE</Select.Item>
+          </Select.Content>
+        </Select.Root>
+        {#if field_error && field_error.field === "loss"}
+          <p class="text-sm text-destructive">{field_error.error}</p>
+        {/if}
+      </div>
     </div>
 
     <div class="grid gap-2">

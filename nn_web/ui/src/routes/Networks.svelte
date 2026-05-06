@@ -18,8 +18,9 @@
     name: string,
     layer_sizes: number[],
     activations: string[],
+    loss: string,
   ) {
-    const err = await data.add(name, layer_sizes, activations);
+    const err = await data.add(name, layer_sizes, activations, loss);
     if (err == null) {
       showCreateModal = false;
       await data.fetch();
