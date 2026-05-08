@@ -10,9 +10,15 @@ public:
     void run();
 
 private:
-    void add_network_routes();
-    void add_data_routes();
-    void add_static_routes();
+    asio::awaitable<void> get_networks(const httc::Request& req, httc::Response& res);
+    asio::awaitable<void> get_network_by_id(const httc::Request& req, httc::Response& res);
+    asio::awaitable<void> create_network(const httc::Request& req, httc::Response& res);
+    asio::awaitable<void> remove_network(const httc::Request& req, httc::Response& res);
+
+    asio::awaitable<void> predict(const httc::Request& req, httc::Response& res);
+    asio::awaitable<void> predict_custom(const httc::Request& req, httc::Response& res);
+
+    asio::awaitable<void> get_data(const httc::Request& req, httc::Response& res);
 
 private:
     std::optional<std::string_view> m_static_assets_path;
