@@ -77,8 +77,7 @@ App::App(std::optional<std::string_view> static_assets_path)
         res.headers.set("Access-Control-Allow-Origin", "*");
         res.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
         res.headers.set(
-            "Access-Control-Allow-Headers",
-            "Content-Type, Authorization, X-Requested-With"
+            "Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With"
         );
         co_return co_await next(req, res);
     }
@@ -89,8 +88,7 @@ App::App(std::optional<std::string_view> static_assets_path)
 
     if (m_static_assets_path) {
         m_router->route(
-            "/",
-            httc::utils::FileHandler(std::format("{}/index.html", *m_static_assets_path))
+            "/", httc::utils::FileHandler(std::format("{}/index.html", *m_static_assets_path))
         );
         m_router->route(
             "/assets/*",
@@ -133,8 +131,7 @@ asio::awaitable<void> App::get_networks(const httc::Request& req, httc::Response
     auto networks_res = co_await m_state->db.get_networks();
     if (!networks_res) {
         spdlog::error(
-            "Failed to retrieve networks: {} {}",
-            networks_res.error().message,
+            "Failed to retrieve networks: {} {}", networks_res.error().message,
             networks_res.error().code
         );
         res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
@@ -262,10 +259,7 @@ asio::awaitable<void> App::create_network(const httc::Request& req, httc::Respon
     auto loss = loss_opt.value();
 
     auto network_opt = nn::Network::new_random(
-        add_req.layer_sizes,
-        hidden_activations_opt.value(),
-        output_activation,
-        loss
+        add_req.layer_sizes, hidden_activations_opt.value(), output_activation, loss
     );
     if (!network_opt.has_value()) {
         res.status = httc::StatusCode::BAD_REQUEST;
@@ -295,9 +289,7 @@ asio::awaitable<void> App::create_network(const httc::Request& req, httc::Respon
             co_return;
         } else {
             spdlog::error(
-                "Failed to add network: {} {}",
-                add_res.error().message,
-                add_res.error().code
+                "Failed to add network: {} {}", add_res.error().message, add_res.error().code
             );
             res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
             res.set_body("Failed to add network");
@@ -373,12 +365,8 @@ asio::awaitable<void> App::predict_custom(const httc::Request& req, httc::Respon
     auto loss = nn::str_to_loss(network_info.loss).value();
 
     auto network_opt = nn::Network::from_data(
-        network_info.layer_sizes,
-        network_info.weights,
-        network_info.biases,
-        hidden_activations,
-        output_activation,
-        loss
+        network_info.layer_sizes, network_info.weights, network_info.biases, hidden_activations,
+        output_activation, loss
     );
     auto network = network_opt.value();
 

@@ -73,3 +73,4 @@ SpacesInParentheses: false
 SpacesInSquareBrackets: false
 # Standard: Latest
 UseTab: Never
+LambdaBodyIndentation: OuterScope

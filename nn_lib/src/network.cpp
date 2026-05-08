@@ -139,13 +139,17 @@ MatrixXd Network::feed_forward(const MatrixXd& input) const {
 
 Prediction Network::predict(const MatrixXd& x, const MatrixXd& y) const {
     auto a = feed_forward(x);
-    double loss = std::visit([&](auto&& l) { return l.function(a, y); }, m_loss);
+    double loss = std::visit([&](auto&& l) {
+        return l.function(a, y);
+    }, m_loss);
     return { a, loss };
 }
 
 double Network::calculate_loss(const MatrixXd& x, const MatrixXd& y) const {
     auto a = feed_forward(x);
-    return std::visit([&](auto&& l) { return l.function(a, y); }, m_loss);
+    return std::visit([&](auto&& l) {
+        return l.function(a, y);
+    }, m_loss);
 }
 
 std::vector<double> Network::dump_weights() {
