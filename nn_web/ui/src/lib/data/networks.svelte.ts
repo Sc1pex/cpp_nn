@@ -19,8 +19,7 @@ export class NetworkList {
 
   async fetch() {
     this.loading = true;
-    const response = await fetch(apiUrl("networks")).then((res) => res.json());
-    this.networks = response.networks;
+    this.networks = await fetch(apiUrl("networks")).then((res) => res.json());
     this.loading = false;
   }
 

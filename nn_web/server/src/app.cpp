@@ -22,18 +22,6 @@ struct AddNetworkRequest {
     std::string loss;
 };
 
-struct FieldError {
-    std::string field;
-    std::string error;
-};
-
-void to_json(json& j, const FieldError& v) {
-    j = json{
-        { "field", v.field },
-        { "error", v.error },
-    };
-}
-
 std::optional<FieldError> validate_network_layers(const std::vector<int>& layers) {
     if (layers.size() < 2) {
         return FieldError{ .field = "shape", .error = "Network must have at least 2 layers" };
@@ -54,6 +42,15 @@ void from_json(const json& j, AddNetworkRequest& req) {
     j.at("activations").get_to(req.activations);
     j.at("loss").get_to(req.loss);
 }
+
+#define MAKE_API_ROUTE(method, handler) \
+    method { \
+        [this](auto& req, auto& res) -> asio::awaitable<void> { \
+            auto resp = co_await handler(req); \
+            resp.to_response(res); \
+            co_return; \
+        } \
+    }
 
 App::App(std::optional<std::string_view> static_assets_path)
 : m_static_assets_path(static_assets_path) {
@@ -96,28 +93,14 @@ App::App(std::optional<std::string_view> static_assets_path)
         );
     }
 
-    m_router->route("/api/networks", get{ [this](auto& req, auto& res) {
-        return get_networks(req, res);
-    } });
-    m_router->route("/api/networks/:id", get{ [this](auto& req, auto& res) {
-        return get_network_by_id(req, res);
-    } });
-    m_router->route("/api/networks", post{ [this](auto& req, auto& res) {
-        return create_network(req, res);
-    } });
-    m_router->route("/api/networks/:id", del{ [this](auto& req, auto& res) {
-        return remove_network(req, res);
-    } });
-    m_router->route("/api/networks/:id/predict/:source/:idx", post{ [this](auto& req, auto& res) {
-        return predict(req, res);
-    } });
-    m_router->route("/api/networks/:id/predict", post{ [this](auto& req, auto& res) {
-        return predict_custom(req, res);
-    } });
+    m_router->route("/api/networks", MAKE_API_ROUTE(get, get_networks));
+    m_router->route("/api/networks/:id", MAKE_API_ROUTE(get, get_network_by_id));
+    m_router->route("/api/networks", MAKE_API_ROUTE(post, create_network));
+    m_router->route("/api/networks/:id", MAKE_API_ROUTE(del, remove_network));
+    m_router->route("/api/networks/:id/predict/:source/:idx", MAKE_API_ROUTE(post, predict));
+    m_router->route("/api/networks/:id/predict", MAKE_API_ROUTE(post, predict_custom));
 
-    m_router->route("/api/data/:source/:idx", get([this](auto& req, auto& res) {
-        return get_data(req, res);
-    }));
+    m_router->route("/api/data/:source/:idx", MAKE_API_ROUTE(get, get_data));
 }
 
 void App::run() {
@@ -130,136 +113,88 @@ void App::run() {
     io_ctx.run();
 }
 
-asio::awaitable<void> App::get_networks(const httc::Request& req, httc::Response& res) {
+asio::awaitable<ApiResponse> App::get_networks(const httc::Request& req) {
     auto networks_res = co_await m_state->db.get_networks();
     if (!networks_res) {
         spdlog::error(
             "Failed to retrieve networks: {} {}", networks_res.error().message,
             networks_res.error().code
         );
-        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-        res.set_body("Failed to retrieve networks");
-        co_return;
+        co_return ApiResponse::internal_error("Failed to retrieve networks");
     }
 
-    json j;
-    j["networks"] = networks_res.value();
-    res.headers.set("Content-Type", "application/json");
-    res.set_body(j.dump());
-
-    co_return;
+    co_return ApiResponse::ok(networks_res.value());
 }
 
-asio::awaitable<void> App::get_network_by_id(const httc::Request& req, httc::Response& res) {
+asio::awaitable<ApiResponse> App::get_network_by_id(const httc::Request& req) {
     int network_id;
     try {
         auto id_str = req.path_params.at("id");
         network_id = std::stoi(id_str);
     } catch (const std::exception&) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        json error_json = {
-            { "field", "id" },
-            { "error", "Invalid network ID" },
-        };
-        res.headers.set("Content-Type", "application/json");
-        res.set_body(error_json.dump());
-        co_return;
+        co_return ApiResponse::bad_request("Invalid network ID");
     }
 
     auto network_res = co_await m_state->db.get_network_by_id(network_id);
     if (!network_res) {
-        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-        res.set_body("Failed to retrieve network");
-        co_return;
+        spdlog::error(
+            "Failed to retrieve network with id {}: {} {}", network_id, network_res.error().message,
+            network_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve network");
     }
-
     if (!network_res.value()) {
-        res.status = httc::StatusCode::NOT_FOUND;
-        res.set_body("Network not found");
-        co_return;
+        spdlog::info("Network with id {} not found", network_id);
+        co_return ApiResponse::not_found("Network not found");
     }
 
-    json j = network_res.value().value();
-    res.headers.set("Content-Type", "application/json");
-    res.set_body(j.dump());
-
-    co_return;
+    co_return ApiResponse::ok(network_res.value().value());
 }
 
-asio::awaitable<void> App::create_network(const httc::Request& req, httc::Response& res) {
+asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
     json j = json::parse(req.body);
     AddNetworkRequest add_req = j.get<AddNetworkRequest>();
 
     if (add_req.name.length() < 2) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.headers.set("Content-Type", "application/json");
-        auto error_json = json{
-            { "field", "name" },
-            { "error", "Name must be at least 2 characters long" },
-        };
-        res.set_body(error_json.dump());
-        co_return;
+        co_return ApiResponse::field_error(
+            { .field = "name", .error = "Name must be at least 2 characters long" }
+        );
     }
 
     if (add_req.activations.size() + 1 != add_req.layer_sizes.size()) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.headers.set("Content-Type", "application/json");
-        auto error_json = json{
-            { "field", "activations" },
-            { "error", "Invalid number of activations" },
-        };
-        res.set_body(error_json.dump());
-        co_return;
+        co_return ApiResponse::field_error(
+            { .field = "activations",
+              .error = "Number of activations must be one less than number of layers" }
+        );
     }
 
     auto hidden_activations_view =
         add_req.activations | std::views::take(add_req.activations.size() - 1);
     auto hidden_activations_opt = nn::strs_to_hidden_activation(hidden_activations_view);
     if (!hidden_activations_opt) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.headers.set("Content-Type", "application/json");
-        auto error_json = json{
-            { "field", "activations" },
-            { "error", "Invalid activation functions" },
-        };
-        res.set_body(error_json.dump());
-        co_return;
+        co_return ApiResponse::field_error(
+            { .field = "activations", .error = "Invalid activation functions in hidden layers" }
+        );
     }
 
     auto output_activation_req = add_req.activations.back();
     auto output_activation_opt = nn::str_to_output_activation(output_activation_req);
     if (!output_activation_opt) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.headers.set("Content-Type", "application/json");
-        auto error_json = json{
-            { "field", "activations" },
-            { "error", "Invalid activation functions" },
-        };
-        res.set_body(error_json.dump());
-        co_return;
+        co_return ApiResponse::field_error(
+            { .field = "activations", .error = "Invalid activation function in output layer" }
+        );
     }
 
     auto layer_error = validate_network_layers(add_req.layer_sizes);
     if (layer_error) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.headers.set("Content-Type", "application/json");
-        json error_json = *layer_error;
-        res.set_body(error_json.dump());
-        co_return;
+        co_return ApiResponse::field_error(*layer_error);
     }
 
     auto output_activation = output_activation_opt.value();
 
     auto loss_opt = nn::str_to_loss(add_req.loss);
     if (!loss_opt) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.headers.set("Content-Type", "application/json");
-        auto error_json = json{
-            { "field", "loss" },
-            { "error", "Invalid loss function" },
-        };
-        res.set_body(error_json.dump());
-        co_return;
+        co_return ApiResponse::field_error({ .field = "loss", .error = "Invalid loss function" });
     }
     auto loss = loss_opt.value();
 
@@ -267,9 +202,8 @@ asio::awaitable<void> App::create_network(const httc::Request& req, httc::Respon
         add_req.layer_sizes, hidden_activations_opt.value(), output_activation, loss
     );
     if (!network_opt.has_value()) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.headers.set("Content-Type", "application/json");
-        co_return;
+        spdlog::error("Invlid network configuration");
+        co_return ApiResponse::internal_error("Failed to create network");
     }
     auto network = network_opt.value();
 
@@ -284,65 +218,54 @@ asio::awaitable<void> App::create_network(const httc::Request& req, httc::Respon
     auto add_res = co_await m_state->db.add_network(std::move(db_network));
     if (!add_res) {
         if (add_res.error().code == SQLITE_CONSTRAINT_UNIQUE) {
-            auto error_json = json{
-                { "field", "name" },
-                { "error", "Network with this name already exists" },
-            };
-            res.status = httc::StatusCode::BAD_REQUEST;
-            res.headers.set("Content-Type", "application/json");
-            res.set_body(error_json.dump());
-            co_return;
+            spdlog::info("Network with name '{}' already exists", add_req.name);
+            co_return ApiResponse::field_error(
+                { .field = "name", .error = "Network with this name already exists" }
+            );
         } else {
             spdlog::error(
                 "Failed to add network: {} {}", add_res.error().message, add_res.error().code
             );
-            res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-            res.set_body("Failed to add network");
-            co_return;
+            co_return ApiResponse::internal_error("Failed to add network");
         }
     }
 
-    res.status = httc::StatusCode::CREATED;
-    res.set_body("Network added successfully");
-    co_return;
+    co_return ApiResponse{ httc::StatusCode::CREATED,
+                           json{ { "message", "Network created successfully" } } };
 }
 
-asio::awaitable<void> App::remove_network(const httc::Request& req, httc::Response& res) {
+asio::awaitable<ApiResponse> App::remove_network(const httc::Request& req) {
     int network_id;
     try {
         auto id_str = req.path_params.at("id");
         network_id = std::stoi(id_str);
     } catch (const std::exception&) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Invalid network ID");
-        co_return;
+        co_return ApiResponse::bad_request("Invalid network ID");
     }
 
     auto delete_res = co_await m_state->db.delete_network_by_id(network_id);
     if (!delete_res) {
-        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-        res.set_body("Failed to delete network");
-        co_return;
+        spdlog::error(
+            "Failed to delete network with id {}: {} {}", network_id, delete_res.error().message,
+            delete_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to delete network");
     }
-
     if (!delete_res.value()) {
-        res.status = httc::StatusCode::NOT_FOUND;
-        res.set_body("Network not found");
-        co_return;
+        spdlog::info("Network with id {} not found", network_id);
+        co_return ApiResponse::not_found("Network not found");
     }
 
-    co_return;
+    co_return ApiResponse::ok(json{ { "message", "Network deleted successfully" } });
 }
 
-asio::awaitable<void> App::predict(const httc::Request& req, httc::Response& res) {
+asio::awaitable<ApiResponse> App::predict(const httc::Request& req) {
     int index;
     try {
         auto idx_str = req.path_params.at("idx");
         index = std::stoi(idx_str);
     } catch (const std::exception&) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Invalid index");
-        co_return;
+        co_return ApiResponse::bad_request("Invalid index");
     }
 
     int network_id;
@@ -350,9 +273,7 @@ asio::awaitable<void> App::predict(const httc::Request& req, httc::Response& res
         auto id_str = req.path_params.at("id");
         network_id = std::stoi(id_str);
     } catch (const std::exception&) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Invalid network ID");
-        co_return;
+        co_return ApiResponse::bad_request("Invalid network ID");
     }
 
     std::expected<std::optional<Sample>, DBError> sample_res;
@@ -362,32 +283,32 @@ asio::awaitable<void> App::predict(const httc::Request& req, httc::Response& res
     } else if (source == "train") {
         sample_res = co_await m_state->db.get_train_sample_by_index(index);
     } else {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Invalid source");
-        co_return;
+        co_return ApiResponse::bad_request("Invalid source");
     }
 
     if (!sample_res) {
-        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-        res.set_body("Failed to retrieve training sample");
-        co_return;
+        spdlog::error(
+            "Failed to retrieve sample from source {} with index {}: {} {}", source, index,
+            sample_res.error().message, sample_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve training sample");
     }
     if (!sample_res.value()) {
-        res.status = httc::StatusCode::NOT_FOUND;
-        res.set_body("Training sample not found");
-        co_return;
+        spdlog::info("Sample from source {} with index {} not found", source, index);
+        co_return ApiResponse::not_found("Training sample not found");
     }
 
     auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
     if (!network_res) {
-        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-        res.set_body("Failed to retrieve network");
-        co_return;
+        spdlog::error(
+            "Failed to retrieve network with id {}: {} {}", network_id, network_res.error().message,
+            network_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve network");
     }
     if (!network_res.value()) {
-        res.status = httc::StatusCode::NOT_FOUND;
-        res.set_body("Network not found");
-        co_return;
+        spdlog::info("Network with id {} not found", network_id);
+        co_return ApiResponse::not_found("Network not found");
     }
     auto network_info = network_res.value().value();
 
@@ -411,38 +332,43 @@ asio::awaitable<void> App::predict(const httc::Request& req, httc::Response& res
         Eigen::Map<Eigen::Matrix<uint8_t, 784, 1>>(sample.input.data()).cast<double>();
     Eigen::MatrixXd expected_output = Eigen::MatrixXd::Zero(10, 1);
     expected_output(sample.expected_output, 0) = 1.;
-    auto output = network.predict(input_matrix, expected_output);
+    auto prediction = network.predict(input_matrix, expected_output);
 
-    json response_json;
-    response_json["output"] =
-        std::vector<double>(output.output.data(), output.output.data() + output.output.size());
-    response_json["loss"] = output.loss;
-    res.headers.set("Content-Type", "application/json");
-    res.set_body(response_json.dump());
-    co_return;
+    co_return ApiResponse::ok(
+        json{ { "output",
+                std::vector<double>(
+                    prediction.output.data(), prediction.output.data() + prediction.output.size()
+                ) },
+              { "loss", prediction.loss } }
+    );
 }
 
-asio::awaitable<void> App::predict_custom(const httc::Request& req, httc::Response& res) {
+asio::awaitable<ApiResponse> App::predict_custom(const httc::Request& req) {
     int network_id;
     try {
         auto id_str = req.path_params.at("id");
         network_id = std::stoi(id_str);
     } catch (const std::exception&) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Invalid network ID");
-        co_return;
+        co_return ApiResponse::bad_request("Invalid network ID");
+    }
+
+    json j = json::parse(req.body);
+    std::vector<double> input = j.at("input").get<std::vector<double>>();
+    if (input.size() != 784) {
+        co_return ApiResponse::bad_request("Input size must be 784");
     }
 
     auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
     if (!network_res) {
-        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-        res.set_body("Failed to retrieve network");
-        co_return;
+        spdlog::error(
+            "Failed to retrieve network with id {}: {} {}", network_id, network_res.error().message,
+            network_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve network");
     }
     if (!network_res.value()) {
-        res.status = httc::StatusCode::NOT_FOUND;
-        res.set_body("Network not found");
-        co_return;
+        spdlog::info("Network with id {} not found", network_id);
+        co_return ApiResponse::not_found("Network not found");
     }
     auto network_info = network_res.value().value();
 
@@ -461,34 +387,21 @@ asio::awaitable<void> App::predict_custom(const httc::Request& req, httc::Respon
     );
     auto network = network_opt.value();
 
-    json j = json::parse(req.body);
-    std::vector<double> input = j.at("input").get<std::vector<double>>();
-
-    if (input.size() != 784) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Input size must be 784");
-        co_return;
-    }
-
     auto input_matrix = Eigen::Map<Eigen::Matrix<double, 784, 1>>(input.data());
     auto output = network.feed_forward(input_matrix);
 
-    json response_json;
-    response_json["output"] = std::vector<double>(output.data(), output.data() + output.size());
-    res.headers.set("Content-Type", "application/json");
-    res.set_body(response_json.dump());
-    co_return;
+    co_return ApiResponse::ok(
+        json{ { "output", std::vector<double>(output.data(), output.data() + output.size()) } }
+    );
 }
 
-asio::awaitable<void> App::get_data(const httc::Request& req, httc::Response& res) {
+asio::awaitable<ApiResponse> App::get_data(const httc::Request& req) {
     int index;
     try {
         auto idx_str = req.path_params.at("idx");
         index = std::stoi(idx_str);
     } catch (const std::exception&) {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Invalid index");
-        co_return;
+        co_return ApiResponse::bad_request("Invalid index");
     }
 
     std::expected<std::optional<Sample>, DBError> sample_res;
@@ -499,26 +412,33 @@ asio::awaitable<void> App::get_data(const httc::Request& req, httc::Response& re
     } else if (source == "train") {
         sample_res = co_await m_state->db.get_train_sample_by_index(index);
     } else {
-        res.status = httc::StatusCode::BAD_REQUEST;
-        res.set_body("Invalid source");
-        co_return;
+        co_return ApiResponse::bad_request("Invalid source");
     }
 
     if (!sample_res) {
-        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
-        res.set_body("Failed to retrieve training sample");
-        co_return;
+        spdlog::error(
+            "Failed to retrieve sample from source {} with index {}: {} {}", source, index,
+            sample_res.error().message, sample_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve training sample");
     }
-
     if (!sample_res.value()) {
-        res.status = httc::StatusCode::NOT_FOUND;
-        res.set_body("Training sample not found");
-        co_return;
+        spdlog::info("Sample from source {} with index {} not found", source, index);
+        co_return ApiResponse::not_found("Training sample not found");
     }
 
-    json j = sample_res.value().value();
-    res.headers.set("Content-Type", "application/json");
-    res.set_body(j.dump());
+    co_return ApiResponse::ok(sample_res.value().value());
+}
 
-    co_return;
+void ApiResponse::to_response(httc::Response& res) {
+    res.status = status;
+    res.headers.set("Content-Type", "application/json");
+    res.set_body(resp.dump());
+}
+
+void to_json(json& j, const FieldError& v) {
+    j = json{
+        { "field", v.field },
+        { "error", v.error },
+    };
 }
