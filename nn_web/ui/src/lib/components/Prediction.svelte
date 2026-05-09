@@ -16,10 +16,10 @@
 
   let datasetType = $state<"train" | "test">("train");
   let imageIndex = $state(42);
+  let predictionLoss = $state(NaN);
   let maxIndex = $derived(datasetType === "train" ? 60000 : 10000);
 
   let expectedDigit = $state<number | null>(null);
-  let inputPixels = $state<number[]>([]);
 
   let predictedDigit = $state<number | null>(null);
   let confidenceScores = $state<number[]>([]);
@@ -40,18 +40,16 @@
   }
 
   function runPrediction() {
-    predictor.predict(inputPixels).then((result) => {
-      console.log(result);
+    predictor.predict(datasetType, imageIndex).then((result) => {
       predictedDigit = result.prediction;
       confidenceScores = result.scores;
+      predictionLoss = result.loss;
     });
   }
 
   $effect(() => {
     getSample(datasetType, imageIndex - 1).then((sample) => {
       expectedDigit = sample.expected_output;
-      inputPixels = sample.input;
-
       renderDigit(canvasElement, sample.input);
       runPrediction();
     });

@@ -3,6 +3,7 @@ import { apiUrl } from "./common";
 export type PredictionResult = {
   scores: number[];
   prediction: number;
+  loss: number;
 };
 
 export class Prediction {
@@ -14,19 +15,21 @@ export class Prediction {
     this.networkId = networkId;
   }
 
-  async predict(input: number[]) {
+  async predict(dataset: "train" | "test", index: number): Promise<PredictionResult> {
     if (this.networkId === null) {
       throw new Error("Network ID is not set");
     }
 
     this.loading = true;
-    const response = await fetch(apiUrl(`networks/${this.networkId}/predict`), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      apiUrl(`networks/${this.networkId}/predict/${dataset}/${index}`),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-      body: JSON.stringify({ input: input }),
-    });
+    );
 
     if (!response.ok) {
       this.loading = false;
@@ -47,6 +50,7 @@ export class Prediction {
     return {
       scores: scores,
       prediction: prediction,
+      loss: data.loss,
     };
   }
 }
