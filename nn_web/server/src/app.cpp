@@ -108,6 +108,9 @@ App::App(std::optional<std::string_view> static_assets_path)
     m_router->route("/api/networks/:id", del{ [this](auto& req, auto& res) {
         return remove_network(req, res);
     } });
+    m_router->route("/api/networks/:id/predict/:source/:idx", post{ [this](auto& req, auto& res) {
+        return predict(req, res);
+    } });
     m_router->route("/api/networks/:id/predict", post{ [this](auto& req, auto& res) {
         return predict_custom(req, res);
     } });
@@ -146,6 +149,7 @@ asio::awaitable<void> App::get_networks(const httc::Request& req, httc::Response
 
     co_return;
 }
+
 asio::awaitable<void> App::get_network_by_id(const httc::Request& req, httc::Response& res) {
     int network_id;
     try {
@@ -181,6 +185,7 @@ asio::awaitable<void> App::get_network_by_id(const httc::Request& req, httc::Res
 
     co_return;
 }
+
 asio::awaitable<void> App::create_network(const httc::Request& req, httc::Response& res) {
     json j = json::parse(req.body);
     AddNetworkRequest add_req = j.get<AddNetworkRequest>();
@@ -301,6 +306,7 @@ asio::awaitable<void> App::create_network(const httc::Request& req, httc::Respon
     res.set_body("Network added successfully");
     co_return;
 }
+
 asio::awaitable<void> App::remove_network(const httc::Request& req, httc::Response& res) {
     int network_id;
     try {
@@ -329,8 +335,93 @@ asio::awaitable<void> App::remove_network(const httc::Request& req, httc::Respon
 }
 
 asio::awaitable<void> App::predict(const httc::Request& req, httc::Response& res) {
+    int index;
+    try {
+        auto idx_str = req.path_params.at("idx");
+        index = std::stoi(idx_str);
+    } catch (const std::exception&) {
+        res.status = httc::StatusCode::BAD_REQUEST;
+        res.set_body("Invalid index");
+        co_return;
+    }
+
+    int network_id;
+    try {
+        auto id_str = req.path_params.at("id");
+        network_id = std::stoi(id_str);
+    } catch (const std::exception&) {
+        res.status = httc::StatusCode::BAD_REQUEST;
+        res.set_body("Invalid network ID");
+        co_return;
+    }
+
+    std::expected<std::optional<Sample>, DBError> sample_res;
+    auto source = req.path_params.at("source");
+    if (source == "test") {
+        sample_res = co_await m_state->db.get_test_sample_by_index(index);
+    } else if (source == "train") {
+        sample_res = co_await m_state->db.get_train_sample_by_index(index);
+    } else {
+        res.status = httc::StatusCode::BAD_REQUEST;
+        res.set_body("Invalid source");
+        co_return;
+    }
+
+    if (!sample_res) {
+        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
+        res.set_body("Failed to retrieve training sample");
+        co_return;
+    }
+    if (!sample_res.value()) {
+        res.status = httc::StatusCode::NOT_FOUND;
+        res.set_body("Training sample not found");
+        co_return;
+    }
+
+    auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
+    if (!network_res) {
+        res.status = httc::StatusCode::INTERNAL_SERVER_ERROR;
+        res.set_body("Failed to retrieve network");
+        co_return;
+    }
+    if (!network_res.value()) {
+        res.status = httc::StatusCode::NOT_FOUND;
+        res.set_body("Network not found");
+        co_return;
+    }
+    auto network_info = network_res.value().value();
+
+    auto hidden_activations_view =
+        network_info.activations | std::views::take(network_info.activations.size() - 1);
+    auto output_activation_str = network_info.activations.back();
+
+    // Should never be invalid since it was validated on insertion
+    auto hidden_activations = nn::strs_to_hidden_activation(hidden_activations_view).value();
+    auto output_activation = nn::str_to_output_activation(output_activation_str).value();
+    auto loss = nn::str_to_loss(network_info.loss).value();
+
+    auto network_opt = nn::Network::from_data(
+        network_info.layer_sizes, network_info.weights, network_info.biases, hidden_activations,
+        output_activation, loss
+    );
+    auto network = network_opt.value();
+
+    auto sample = sample_res.value().value();
+    auto input_matrix =
+        Eigen::Map<Eigen::Matrix<uint8_t, 784, 1>>(sample.input.data()).cast<double>();
+    Eigen::MatrixXd expected_output = Eigen::MatrixXd::Zero(10, 1);
+    expected_output(sample.expected_output, 0) = 1.;
+    auto output = network.predict(input_matrix, expected_output);
+
+    json response_json;
+    response_json["output"] =
+        std::vector<double>(output.output.data(), output.output.data() + output.output.size());
+    response_json["loss"] = output.loss;
+    res.headers.set("Content-Type", "application/json");
+    res.set_body(response_json.dump());
     co_return;
 }
+
 asio::awaitable<void> App::predict_custom(const httc::Request& req, httc::Response& res) {
     int network_id;
     try {
