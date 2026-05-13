@@ -1,1 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", sans-serif;
+
+  --color-background: oklch(97.73% 0.005 3.34);
+  --color-surface: oklch(93% 0.008 3.34);
+  --color-border: oklch(88% 0.01 3.34);
+  --color-muted: oklch(55% 0.015 4.99);
+  --color-text: oklch(16.54% 0.023 4.99);
+
+  --color-primary: oklch(58.43% 0.117 15.79);
+  --color-primary-hover: oklch(52% 0.117 15.79);
+
+  --color-secondary: oklch(80.99% 0.056 86.11);
+  --color-accent: oklch(78.9% 0.085 102.88);
+
+  --color-danger: oklch(55% 0.2 22);
+  --color-danger-hover: oklch(49% 0.2 22);
+}
