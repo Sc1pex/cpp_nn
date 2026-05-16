@@ -2,6 +2,7 @@
   import type { Network } from "$lib/data/network";
   import { ExternalLink, Trash2 } from "@lucide/svelte";
   import { Dialog } from "bits-ui";
+  import Button from "../Button.svelte";
 
   interface Props {
     network: Network;
@@ -13,18 +14,16 @@
 
 <Dialog.Root>
   <div class="flex items-center justify-between pt-2 border-t border-border">
-    <Dialog.Trigger
-      class="flex items-center gap-2 bg-danger hover:bg-danger-hover text-white px-4 py-2 rounded-xl transition-colors"
-    >
-      <Trash2 size={16} />
-      Delete
+    <Dialog.Trigger>
+      <Button variant="danger">
+        <Trash2 size={16} />
+        Delete
+      </Button>
     </Dialog.Trigger>
-    <button
-      class="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl transition-colors"
-    >
+    <Button>
       <ExternalLink size={16} />
       View Details
-    </button>
+    </Button>
   </div>
 
   <Dialog.Portal>
