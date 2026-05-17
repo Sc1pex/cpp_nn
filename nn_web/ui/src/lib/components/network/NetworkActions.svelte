@@ -3,6 +3,7 @@
   import { ExternalLink, Trash2 } from "@lucide/svelte";
   import { Dialog } from "bits-ui";
   import Button from "../Button.svelte";
+  import { cx } from "$lib/utils";
 
   interface Props {
     network: Network;
@@ -29,7 +30,13 @@
   <Dialog.Portal>
     <Dialog.Overlay class="fixed inset-0 bg-black/50 backdrop-blur-sm" />
     <Dialog.Content
-      class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface border border-border rounded-2xl p-6 flex flex-col gap-4 w-full max-w-md shadow-lg"
+      class={cx(
+        "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+        "bg-surface border border-border rounded-2xl shadow-lg",
+        "p-6",
+        "flex flex-col gap-4",
+        "w-full max-w-md",
+      )}
     >
       <div>
         <Dialog.Title class="text-lg font-bold text-text"
@@ -45,19 +52,13 @@
         class="flex items-center justify-end gap-3 pt-2 border-t border-border"
       >
         <Dialog.Close>
-          <button
-            class="px-4 py-2 rounded-xl border border-border text-text hover:bg-background transition-colors text-sm"
-          >
-            Cancel
-          </button>
+          <Button variant="outline" class="text-sm">Cancel</Button>
         </Dialog.Close>
         <Dialog.Close>
-          <button
-            class="flex items-center gap-2 bg-danger hover:bg-danger-hover text-white px-4 py-2 rounded-xl transition-colors text-sm"
-          >
+          <Button variant="danger" class="text-sm">
             <Trash2 size={16} />
             Delete
-          </button>
+          </Button>
         </Dialog.Close>
       </div>
     </Dialog.Content>

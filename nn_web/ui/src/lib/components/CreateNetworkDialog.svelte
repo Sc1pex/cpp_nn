@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Check, ChevronDown, Plus, Trash2 } from "@lucide/svelte";
+  import { Plus, Trash2 } from "@lucide/svelte";
   import { Dialog } from "bits-ui";
   import Button from "./Button.svelte";
   import Select from "./Select.svelte";
+  import { cx } from "$lib/utils";
 
   const lossFunctions = [
     { value: "cross_entropy", label: "Cross Entropy" },
@@ -72,7 +73,14 @@
   <Dialog.Portal>
     <Dialog.Overlay class="fixed inset-0 bg-black/50 backdrop-blur-sm" />
     <Dialog.Content
-      class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface border border-border rounded-2xl p-6 flex flex-col gap-4 w-full max-w-lg shadow-lg data-placeholder:text-text/50"
+      class={cx(
+        "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+        "bg-surface border border-border rounded-2xl shadow-lg",
+        "p-6",
+        "flex flex-col gap-4",
+        "w-full max-w-lg",
+        "data-placeholder:text-text/50",
+      )}
     >
       <div>
         <Dialog.Title class="text-xl font-bold text-text"
@@ -84,7 +92,13 @@
         <div class="flex-1">
           <p class="font-semibold">Network name</p>
           <input
-            class="bg-background px-3 py-2 rounded-lg border border-border text-sm hover:border-primary transition-colors focus:outline-none focus:border-primary"
+            class={cx(
+              "bg-background rounded-lg border border-border",
+              "px-3 py-2",
+              "text-sm",
+              "transition-colors hover:border-primary",
+              "focus:outline-none focus:border-primary",
+            )}
           />
         </div>
         <div class="flex-1">
@@ -126,7 +140,14 @@
                 <input
                   type="number"
                   min={1}
-                  class="w-full px-3 py-2 rounded-lg border border-border bg-background text-text text-sm focus:outline-none focus:border-primary transition-colors"
+                  class={cx(
+                    "rounded-lg border border-border bg-background",
+                    "text-text text-sm",
+                    "w-full",
+                    "px-3 py-2",
+                    "transition-colors hover:border-primary",
+                    "focus:outline-none focus:border-primary",
+                  )}
                 />
               </div>
               {#if layer.kind != "input"}

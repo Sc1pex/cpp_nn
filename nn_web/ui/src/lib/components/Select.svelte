@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cx } from "$lib/utils";
   import { Check, ChevronDown } from "@lucide/svelte";
   import { Select } from "bits-ui";
 
@@ -26,24 +27,48 @@
 
 <Select.Root type="single" {items} bind:value={selected}>
   <Select.Trigger
-    class="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background text-sm hover:border-primary transition-colors focus:border-primary focus:outline-none group {cls}"
+    class={cx(
+      "flex items-center justify-between",
+      "px-3 py-2",
+      "rounded-lg border border-border bg-background",
+      "text-sm",
+      "hover:border-primary",
+      "transition-colors",
+      "focus:border-primary focus:outline-none",
+      "group",
+      cls,
+    )}
   >
     <Select.Value {placeholder} />
     <ChevronDown
       size={16}
-      class="text-muted transition-transform group-data-[state=open]:rotate-180"
+      class={cx(
+        "text-muted",
+        "transition-transform group-data-[state=open]:rotate-180",
+      )}
     />
   </Select.Trigger>
 
   <Select.Content
-    class="bg-surface border border-border rounded-lg shadow-lg overflow-hidden z-50 w-(--bits-select-anchor-width)
-    transition-all duration-100 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:translate-y-0 data-[state=closed]:-translate-y-1"
+    class={cx(
+      "bg-surface border border-border rounded-lg shadow-lg",
+      "overflow-hidden z-50",
+      "w-(--bits-select-anchor-width)",
+      "transition-all duration-100 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:translate-y-0 data-[state=closed]:-translate-y-1",
+    )}
   >
     {#each items as item}
       <Select.Item
         value={item.value}
         label={item.label}
-        class="px-3 py-2 text-sm text-text hover:bg-background cursor-pointer transition-colors data-highlighted:bg-background data-[state=checked]:text-primary flex"
+        class={cx(
+          "flex",
+          "px-3 py-2",
+          "text-sm text-text",
+          "cursor-pointer",
+          "transition-colors hover:bg-background",
+          "data-highlighted:bg-background data-[state=checked]:text-primary",
+        )}
       >
         {#snippet children({ selected })}
           {item.label}

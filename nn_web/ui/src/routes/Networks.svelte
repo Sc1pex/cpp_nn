@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Plus } from "@lucide/svelte";
   import NetworkCard from "$lib/components/network/NetworkCard.svelte";
   import type { Network } from "$lib/data/network";
   import CreateNetworkDialog from "$lib/components/CreateNetworkDialog.svelte";
