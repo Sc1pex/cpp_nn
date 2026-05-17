@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { ExternalLink, Trash2 } from "@lucide/svelte";
-  import Card from "../lib/components/Card.svelte";
-  import { Dialog } from "bits-ui";
+  import { Plus } from "@lucide/svelte";
   import NetworkCard from "$lib/components/network/NetworkCard.svelte";
   import type { Network } from "$lib/data/network";
+  import CreateNetworkDialog from "$lib/components/CreateNetworkDialog.svelte";
 
   const data: Network[] = [
     {
@@ -49,7 +48,12 @@
   ];
 </script>
 
-<div class="flex flex-col gap-12">
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-text">Networks</h1>
+  <CreateNetworkDialog />
+</div>
+
+<div class="flex flex-col gap-8">
   {#each data as network}
     <NetworkCard {network} onDelete={(id) => console.log(`Deleting ${id}`)} />
   {/each}
