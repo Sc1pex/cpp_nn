@@ -162,7 +162,7 @@ asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
     }
     if (add_req.name.length() > 32) {
         co_return ApiResponse::field_error(
-            { .field = "name", .error = "Name must be at less than 32 characters long" }
+            { .field = "name", .error = "Name must be less than 32 characters long" }
         );
     }
 
