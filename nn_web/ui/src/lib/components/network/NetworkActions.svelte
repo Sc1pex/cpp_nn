@@ -55,7 +55,11 @@
           <Button variant="outline" class="text-sm">Cancel</Button>
         </Dialog.Close>
         <Dialog.Close>
-          <Button variant="danger" class="text-sm">
+          <Button
+            variant="danger"
+            class="text-sm"
+            onclick={() => onDelete(network.id)}
+          >
             <Trash2 size={16} />
             Delete
           </Button>

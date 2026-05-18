@@ -1,9 +1,9 @@
 <script lang="ts">
   import NetworkCard from "$lib/components/network/NetworkCard.svelte";
-  import type { Network } from "$lib/data/network";
+  import type { Layer, Network } from "$lib/data/network";
   import CreateNetworkDialog from "$lib/components/CreateNetworkDialog.svelte";
 
-  const data: Network[] = [
+  let networks = $state<Network[]>([
     {
       name: "Network 1",
       id: 1,
@@ -44,16 +44,43 @@
       epocs: 20,
       accuracy: 15.6,
     },
-  ];
+  ]);
+
+  function deleteNetwork(id: number) {
+    networks = networks.filter((n) => n.id !== id);
+  }
+  function addNetwork(name: string, layers: Layer[], loss: string): void {
+    let max_id = 0;
+    for (let i = 0; i < networks.length; i++) {
+      max_id = Math.max(max_id, networks[i].id);
+    }
+    networks = [
+      ...networks,
+      {
+        name,
+        id: max_id + 1,
+        layers: layers.map((l) => l.neurons),
+        activations: layers
+          .filter((l) => l.kind !== "input")
+          .map((l) => l.activation),
+        loss_function: loss,
+        loss: Math.random(),
+        epocs: Math.round(Math.random() * 20),
+        accuracy: Math.random(),
+      },
+    ];
+  }
+
+  $inspect(networks);
 </script>
 
 <div class="flex items-center justify-between mb-6">
   <h1 class="text-2xl font-bold text-text">Networks</h1>
-  <CreateNetworkDialog />
+  <CreateNetworkDialog onsubmit={addNetwork} />
 </div>
 
 <div class="flex flex-col gap-8">
-  {#each data as network}
-    <NetworkCard {network} onDelete={(id) => console.log(`Deleting ${id}`)} />
+  {#each networks as network}
+    <NetworkCard {network} onDelete={deleteNetwork} />
   {/each}
 </div>
