@@ -81,8 +81,6 @@
 
   const getFieldError = (fieldName: string) =>
     errors.find((f) => f.field === fieldName);
-
-  $inspect(errors);
 </script>
 
 <Dialog.Root bind:open={dialogOpen}>

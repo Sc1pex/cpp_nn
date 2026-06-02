@@ -85,8 +85,6 @@
     ];
     return [];
   }
-
-  $inspect(networks);
 </script>
 
 <div class="flex items-center justify-between mb-6">
