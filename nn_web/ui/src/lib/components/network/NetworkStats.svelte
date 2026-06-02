@@ -11,7 +11,7 @@
 <div class="flex gap-8 bg-background rounded-xl p-4">
   <div class="flex-1">
     <p class="text-muted text-sm">Accuracy</p>
-    <p class="text-2xl font-bold">{network.accuracy}%</p>
+    <p class="text-2xl font-bold">{network.accuracy.toFixed(2)}%</p>
     <div class="h-1.5 bg-border rounded-full mt-2">
       <div
         class="h-1.5 bg-primary rounded-full transition-all"
@@ -21,7 +21,7 @@
   </div>
   <div>
     <p class="text-muted text-sm">Loss</p>
-    <p class="text-2xl font-bold mt-1">{network.loss}</p>
+    <p class="text-2xl font-bold mt-1">{network.loss.toFixed(3)}</p>
   </div>
   <div>
     <p class="text-muted text-sm">Epochs</p>

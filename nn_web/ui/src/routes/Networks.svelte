@@ -2,6 +2,7 @@
   import NetworkCard from "$lib/components/network/NetworkCard.svelte";
   import type { Layer, Network } from "$lib/data/network";
   import CreateNetworkDialog from "$lib/components/CreateNetworkDialog.svelte";
+  import type { FieldError } from "$lib/types";
 
   let networks = $state<Network[]>([
     {
@@ -49,7 +50,20 @@
   function deleteNetwork(id: number) {
     networks = networks.filter((n) => n.id !== id);
   }
-  function addNetwork(name: string, layers: Layer[], loss: string): void {
+  function addNetwork(
+    name: string,
+    layers: Layer[],
+    loss: string,
+  ): FieldError[] {
+    if (name.length < 3 || name.length > 32) {
+      return [
+        {
+          field: "name",
+          error: "Name must be between 3 and 32 characters long",
+        },
+      ];
+    }
+
     let max_id = 0;
     for (let i = 0; i < networks.length; i++) {
       max_id = Math.max(max_id, networks[i].id);
@@ -66,9 +80,10 @@
         loss_function: loss,
         loss: Math.random(),
         epocs: Math.round(Math.random() * 20),
-        accuracy: Math.random(),
+        accuracy: Math.random() * 100,
       },
     ];
+    return [];
   }
 
   $inspect(networks);

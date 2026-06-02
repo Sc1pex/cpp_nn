@@ -5,6 +5,7 @@
   import Select from "./Select.svelte";
   import { cx } from "$lib/utils";
   import type { Layer } from "$lib/data/network";
+  import type { FieldError } from "$lib/types";
 
   const lossValues = [
     { value: "cross_entropy", label: "Cross Entropy" },
@@ -31,6 +32,15 @@
   let layers = $state<Layer[]>(defaultLayers());
   let networkName = $state("");
   let lossFunction = $state("cross_entropy");
+  let errors = $state<FieldError[]>([]);
+  let dialogOpen = $state<boolean>(false);
+
+  function defaultState() {
+    layers = defaultLayers();
+    networkName = "";
+    errors = [];
+    dialogOpen = false;
+  }
 
   let maxLayers = 6;
   let addLayerDisabled = $derived(layers.length >= maxLayers);
@@ -55,17 +65,27 @@
   const {
     onsubmit: handleSubmit,
   }: {
-    onsubmit: (name: string, layers: Layer[], loss: string) => void;
+    onsubmit: (name: string, layers: Layer[], loss: string) => FieldError[];
   } = $props();
 
   function onsubmit(e: SubmitEvent) {
     e.preventDefault();
-    handleSubmit(networkName, layers, lossFunction);
-    layers = defaultLayers();
+    errors = handleSubmit(networkName, layers, lossFunction);
+
+    if (errors.length != 0) {
+      return;
+    }
+
+    defaultState();
   }
+
+  const getFieldError = (fieldName: string) =>
+    errors.find((f) => f.field === fieldName);
+
+  $inspect(errors);
 </script>
 
-<Dialog.Root>
+<Dialog.Root bind:open={dialogOpen}>
   <Dialog.Trigger>
     <Button>
       <Plus size={16} />
@@ -96,6 +116,7 @@
             <p class="font-semibold">Network name</p>
             <input
               bind:value={networkName}
+              maxlength={32}
               class={cx(
                 "bg-background rounded-lg border border-border",
                 "px-3 py-2",
@@ -104,13 +125,16 @@
                 "focus:outline-none focus:border-primary",
               )}
             />
+            <span class="text-danger text-sm"
+              >{getFieldError("name")?.error}</span
+            >
           </div>
           <div class="flex-1">
             <p class="font-semibold">Loss Function</p>
             <Select
               items={lossValues}
               class="w-full"
-              default_value=""
+              default_value="cross_entropy"
               bind:selected={lossFunction}
             />
           </div>
@@ -150,6 +174,8 @@
                     disabled={layer.fixed}
                     type="number"
                     min={1}
+                    max={1024}
+                    required={true}
                     class={cx(
                       "rounded-lg border border-border bg-background",
                       "text-text text-sm",
@@ -194,15 +220,11 @@
           class="flex items-center justify-end gap-3 pt-2 border-t border-border"
         >
           <Dialog.Close>
-            <Button
-              type="reset"
-              variant="outline"
-              onclick={() => (layers = defaultLayers())}>Cancel</Button
+            <Button type="reset" variant="outline" onclick={defaultState}
+              >Cancel</Button
             >
           </Dialog.Close>
-          <Dialog.Close>
-            <Button type="submit">Create network</Button>
-          </Dialog.Close>
+          <Button type="submit">Create network</Button>
         </div>
       </form>
     </Dialog.Content>
