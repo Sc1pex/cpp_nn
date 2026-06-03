@@ -4,6 +4,7 @@
   import { Dialog } from "bits-ui";
   import Button from "../Button.svelte";
   import { cx } from "$lib/utils";
+  import { navigate } from "../../../router";
 
   interface Props {
     network: Network;
@@ -21,7 +22,7 @@
         Delete
       </Button>
     </Dialog.Trigger>
-    <Button>
+    <Button onclick={() => navigate("/:id", { params: { id: network.id.toString() } })}>
       <ExternalLink size={16} />
       View Details
     </Button>
