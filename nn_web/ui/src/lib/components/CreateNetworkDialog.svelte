@@ -37,10 +37,16 @@
 
   function defaultState() {
     layers = defaultLayers();
-    networkName = "";
+    networkName = defaultName;
     errors = [];
     dialogOpen = false;
   }
+
+  $effect(() => {
+    if (!dialogOpen) {
+      networkName = defaultName;
+    }
+  });
 
   let maxLayers = 6;
   let addLayerDisabled = $derived(layers.length >= maxLayers);
@@ -64,8 +70,10 @@
 
   const {
     onsubmit: handleSubmit,
+    defaultName,
   }: {
     onsubmit: (name: string, layers: Layer[], loss: string) => FieldError[];
+    defaultName: string;
   } = $props();
 
   function onsubmit(e: SubmitEvent) {
@@ -218,7 +226,7 @@
           class="flex items-center justify-end gap-3 pt-2 border-t border-border"
         >
           <Dialog.Close>
-            <Button type="reset" variant="outline" onclick={defaultState}
+            <Button type="button" variant="outline" onclick={defaultState}
               >Cancel</Button
             >
           </Dialog.Close>

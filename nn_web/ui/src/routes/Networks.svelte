@@ -47,6 +47,20 @@
     },
   ]);
 
+  const defaultName = $derived.by(() => {
+    let smallest = 0;
+    for (const network of networks) {
+      const match = network.name.match(/Network (\d+)/);
+      if (match) {
+        const number = parseInt(match[1], 10);
+        if (number >= smallest) {
+          smallest = number;
+        }
+      }
+    }
+    return `Network ${smallest + 1}`;
+  });
+
   function deleteNetwork(id: number) {
     networks = networks.filter((n) => n.id !== id);
   }
@@ -89,7 +103,7 @@
 
 <div class="flex items-center justify-between mb-6">
   <h1 class="text-2xl font-bold text-text">Networks</h1>
-  <CreateNetworkDialog onsubmit={addNetwork} />
+  <CreateNetworkDialog onsubmit={addNetwork} {defaultName} />
 </div>
 
 <div class="flex flex-col gap-8">
