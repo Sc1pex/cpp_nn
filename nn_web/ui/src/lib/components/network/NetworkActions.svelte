@@ -8,13 +8,23 @@
 
   interface Props {
     network: Network;
-    onDelete: (networkId: number) => void;
+    onDelete: (networkId: number) => Promise<void>;
   }
 
   const { network, onDelete }: Props = $props();
+
+  let dialogOpen = $state(false);
+  let isDeleting = $state(false);
+
+  async function handleDelete() {
+    isDeleting = true;
+    await onDelete(network.id);
+    isDeleting = false;
+    dialogOpen = false;
+  }
 </script>
 
-<Dialog.Root>
+<Dialog.Root bind:open={dialogOpen}>
   <div class="flex items-center justify-between pt-2 border-t border-border">
     <Dialog.Trigger>
       <Button variant="danger">
@@ -56,18 +66,23 @@
         class="flex items-center justify-end gap-3 pt-2 border-t border-border"
       >
         <Dialog.Close>
-          <Button variant="outline" class="text-sm">Cancel</Button>
-        </Dialog.Close>
-        <Dialog.Close>
-          <Button
-            variant="danger"
-            class="text-sm"
-            onclick={() => onDelete(network.id)}
+          <Button variant="outline" class="text-sm" disabled={isDeleting}
+            >Cancel</Button
           >
-            <Trash2 size={16} />
-            Delete
-          </Button>
         </Dialog.Close>
+        <Button
+          variant="danger"
+          class="text-sm"
+          onclick={handleDelete}
+          disabled={isDeleting}
+        >
+          <Trash2 size={16} />
+          {#if isDeleting}
+            Deleting...
+          {:else}
+            Delete
+          {/if}
+        </Button>
       </div>
     </Dialog.Content>
   </Dialog.Portal>

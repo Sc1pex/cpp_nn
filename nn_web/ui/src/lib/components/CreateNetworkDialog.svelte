@@ -80,9 +80,13 @@
     defaultName: string;
   } = $props();
 
+  let isSubmitting = $state(false);
+
   async function onsubmit(e: SubmitEvent) {
     e.preventDefault();
+    isSubmitting = true;
     errors = await handleSubmit(networkName, layers, lossFunction);
+    isSubmitting = false;
 
     if (errors.length != 0) {
       return;
@@ -234,7 +238,13 @@
               >Cancel</Button
             >
           </Dialog.Close>
-          <Button type="submit">Create network</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {#if isSubmitting}
+              Creating...
+            {:else}
+              Create network
+            {/if}
+          </Button>
         </div>
       </form>
     </Dialog.Content>

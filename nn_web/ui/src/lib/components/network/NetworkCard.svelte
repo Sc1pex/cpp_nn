@@ -7,7 +7,7 @@
 
   interface Props {
     network: Network;
-    onDelete: (networkId: number) => void;
+    onDelete: (networkId: number) => Promise<void>;
   }
 
   const { network, onDelete }: Props = $props();

@@ -23,8 +23,17 @@
   <CreateNetworkDialog onsubmit={networkStore.create} {defaultName} />
 </div>
 
-<div class="flex flex-col gap-8">
-  {#each networkStore.networks as network}
-    <NetworkCard {network} onDelete={networkStore.delete} />
-  {/each}
-</div>
+{#if networkStore.loading && networkStore.networks.length === 0}
+  <div class="flex flex-col items-center justify-center p-12 text-muted gap-4">
+    <div
+      class="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin"
+    ></div>
+    <p>Loading networks...</p>
+  </div>
+{:else}
+  <div class="flex flex-col gap-8">
+    {#each networkStore.networks as network}
+      <NetworkCard {network} onDelete={networkStore.delete} />
+    {/each}
+  </div>
+{/if}
