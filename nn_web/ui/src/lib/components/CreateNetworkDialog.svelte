@@ -4,7 +4,7 @@
   import Button from "./Button.svelte";
   import Select from "./Select.svelte";
   import { cx } from "$lib/utils";
-  import type { Layer } from "$lib/data/network";
+  import type { Layer } from "$lib/data/layer";
   import type { FieldError } from "$lib/types";
 
   const lossValues = [

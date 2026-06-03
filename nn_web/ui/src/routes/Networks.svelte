@@ -1,8 +1,9 @@
 <script lang="ts">
   import NetworkCard from "$lib/components/network/NetworkCard.svelte";
-  import type { Layer, Network } from "$lib/data/network";
   import CreateNetworkDialog from "$lib/components/CreateNetworkDialog.svelte";
+  import type { Network } from "$lib/data/network";
   import type { FieldError } from "$lib/types";
+  import type { Layer } from "$lib/data/layer";
 
   let networks = $state<Network[]>([
     {
