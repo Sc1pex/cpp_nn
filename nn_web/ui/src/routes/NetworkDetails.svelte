@@ -2,7 +2,7 @@
   import { route, navigate } from "../router";
   import { ArrowLeft } from "@lucide/svelte";
   import Button from "$lib/components/Button.svelte";
-  import type { Network } from "$lib/data/network";
+  import type { Network } from "$lib/data/network.svelte";
   import NetworkArchitecture from "$lib/components/network/NetworkArchitecture.svelte";
 
   const networkId = parseInt(route.getParams("/:id").id);

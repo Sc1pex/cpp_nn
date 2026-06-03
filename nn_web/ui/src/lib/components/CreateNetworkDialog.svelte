@@ -72,13 +72,17 @@
     onsubmit: handleSubmit,
     defaultName,
   }: {
-    onsubmit: (name: string, layers: Layer[], loss: string) => FieldError[];
+    onsubmit: (
+      name: string,
+      layers: Layer[],
+      loss: string,
+    ) => Promise<FieldError[]>;
     defaultName: string;
   } = $props();
 
-  function onsubmit(e: SubmitEvent) {
+  async function onsubmit(e: SubmitEvent) {
     e.preventDefault();
-    errors = handleSubmit(networkName, layers, lossFunction);
+    errors = await handleSubmit(networkName, layers, lossFunction);
 
     if (errors.length != 0) {
       return;

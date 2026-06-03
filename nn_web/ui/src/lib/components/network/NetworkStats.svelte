@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Network } from "$lib/data/network";
+  import type { Network } from "$lib/data/network.svelte";
 
   interface Props {
     network: Network;

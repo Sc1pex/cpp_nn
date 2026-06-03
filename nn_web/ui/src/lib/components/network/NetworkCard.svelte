@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type Network } from "$lib/data/network";
+  import { type Network } from "$lib/data/network.svelte";
   import Card from "../Card.svelte";
   import NetworkActions from "./NetworkActions.svelte";
   import NetworkArchitecture from "./NetworkArchitecture.svelte";

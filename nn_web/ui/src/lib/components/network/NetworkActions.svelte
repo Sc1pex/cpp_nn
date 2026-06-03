@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Network } from "$lib/data/network";
+  import type { Network } from "$lib/data/network.svelte";
   import { ExternalLink, Trash2 } from "@lucide/svelte";
   import { Dialog } from "bits-ui";
   import Button from "../Button.svelte";
@@ -22,7 +22,10 @@
         Delete
       </Button>
     </Dialog.Trigger>
-    <Button onclick={() => navigate("/:id", { params: { id: network.id.toString() } })}>
+    <Button
+      onclick={() =>
+        navigate("/:id", { params: { id: network.id.toString() } })}
+    >
       <ExternalLink size={16} />
       View Details
     </Button>
