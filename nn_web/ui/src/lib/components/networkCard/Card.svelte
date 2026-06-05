@@ -1,9 +1,9 @@
 <script lang="ts">
   import { type Network } from "$lib/data/network.svelte";
   import Card from "../Card.svelte";
-  import NetworkActions from "./NetworkActions.svelte";
-  import NetworkArchitecture from "./NetworkArchitecture.svelte";
-  import NetworkStats from "./NetworkStats.svelte";
+  import Actions from "./Actions.svelte";
+  import Architecture from "./Architecture.svelte";
+  import Stats from "./Stats.svelte";
 
   interface Props {
     network: Network;
@@ -15,7 +15,7 @@
 
 <Card class="p-6 flex flex-col gap-4">
   <h2 class="font-bold text-xl">{network.name}</h2>
-  <NetworkStats {network} />
-  <NetworkArchitecture {network} />
-  <NetworkActions {network} {onDelete} />
+  <Stats {network} />
+  <Architecture {network} />
+  <Actions {network} {onDelete} />
 </Card>

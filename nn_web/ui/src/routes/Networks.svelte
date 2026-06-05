@@ -1,5 +1,5 @@
 <script lang="ts">
-  import NetworkCard from "$lib/components/network/NetworkCard.svelte";
+  import Card from "$lib/components/networkCard/Card.svelte";
   import CreateNetworkDialog from "$lib/components/CreateNetworkDialog.svelte";
   import { networkStore } from "$lib/data/network.svelte";
 
@@ -36,7 +36,7 @@
   {:else}
     <div class="flex flex-col gap-8">
       {#each networkStore.networks as network}
-        <NetworkCard {network} onDelete={networkStore.delete} />
+        <Card {network} onDelete={networkStore.delete} />
       {/each}
     </div>
   {/if}

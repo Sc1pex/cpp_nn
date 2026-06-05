@@ -3,7 +3,7 @@
   import { ArrowLeft } from "@lucide/svelte";
   import Button from "$lib/components/Button.svelte";
   import { networkStore } from "$lib/data/network.svelte";
-  import NetworkArchitecture from "$lib/components/network/NetworkArchitecture.svelte";
+  import Architecture from "$lib/components/networkCard/Architecture.svelte";
   import NetworkTester from "$lib/components/NetworkTester.svelte";
 
   const networkId = parseInt(route.getParams("/:id").id);
@@ -49,7 +49,7 @@
       class="bg-surface border border-border rounded-2xl shadow-sm p-6 flex flex-col gap-4"
     >
       <h2 class="text-xl font-bold text-text">Architecture</h2>
-      <NetworkArchitecture {network} variant="detailed" />
+      <Architecture {network} variant="detailed" />
     </div>
 
     <NetworkTester networkId={network.id} />
