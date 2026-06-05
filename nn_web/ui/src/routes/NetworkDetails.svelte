@@ -113,25 +113,31 @@
         <div class="flex items-center gap-4 flex-wrap">
           <select
             bind:value={datasetType}
-            class="bg-background border border-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-primary text-text"
+            disabled={isPredicting}
+            class="bg-background border border-border rounded-lg px-3 py-1.5 text-sm outline-none focus:border-primary text-text disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
           >
             <option value="train">Training Data (60,000)</option>
             <option value="test">Test Data (10,000)</option>
           </select>
 
           <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold text-text">Index:</span>
+            <span
+              class="text-sm font-semibold text-text"
+              class:opacity-50={isPredicting}>Index:</span
+            >
             <input
               type="number"
               bind:value={imageIndex}
               min="1"
               max={maxIndex}
-              class="w-20 bg-background border border-border rounded-lg px-2 py-1.5 text-sm outline-none focus:border-primary text-text"
+              disabled={isPredicting}
+              class="w-20 bg-background border border-border rounded-lg px-2 py-1.5 text-sm outline-none focus:border-primary text-text disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
             />
             <Button
               variant="outline"
               class="!px-3 !py-1.5 text-sm"
-              onclick={randomize}>Random</Button
+              onclick={randomize}
+              disabled={isPredicting}>Random</Button
             >
           </div>
         </div>
@@ -140,9 +146,13 @@
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch mt-4">
         <!-- Left Column: Canvas and Summary (5 columns wide) -->
         <div class="lg:col-span-5 flex flex-col gap-3">
-          <h3 class="text-sm font-semibold text-muted tracking-wider uppercase">
-            Input Image
-          </h3>
+          <div class="h-8 flex items-center">
+            <h3
+              class="text-sm font-semibold text-muted tracking-wider uppercase"
+            >
+              Input Image
+            </h3>
+          </div>
           <div
             class="border border-border rounded-xl bg-background flex flex-col items-center justify-center p-8 shadow-sm flex-1"
           >
@@ -200,20 +210,20 @@
 
         <!-- Right Column: Confidence Breakdown (7 columns wide) -->
         <div class="lg:col-span-7 flex flex-col gap-3">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between h-8">
             <h3
               class="text-sm font-semibold text-muted tracking-wider uppercase"
             >
               Confidence Breakdown
             </h3>
-            {#if isPredicting}
-              <span
-                class="text-xs text-primary font-bold uppercase tracking-wider flex items-center gap-2 bg-primary/10 px-3 py-1 rounded-full"
-              >
-                <span class="w-2 h-2 bg-primary rounded-full"></span>
-                Computing...
-              </span>
-            {/if}
+            <span
+              class="text-xs text-primary font-bold uppercase tracking-wider flex items-center gap-2 bg-primary/10 px-3 py-1 rounded-full transition-opacity duration-200"
+              class:opacity-0={!isPredicting}
+              class:opacity-100={isPredicting}
+            >
+              <span class="w-2 h-2 bg-primary rounded-full animate-ping"></span>
+              Computing...
+            </span>
           </div>
 
           <div
