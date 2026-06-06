@@ -18,7 +18,7 @@
     </div>
     <div class="flex justify-between items-end gap-6 overflow-hidden">
       <div class="flex items-center gap-1 overflow-x-auto flex-nowrap pb-3 w-full">
-        {#each network.layers as layer, i}
+        {#each network.layer_sizes as layer, i}
           <div class="flex flex-col items-center shrink-0">
             <span class="text-xs opacity-0">·</span>
             <span
@@ -26,7 +26,7 @@
               >{layer}</span
             >
           </div>
-          {#if i < network.layers.length - 1}
+          {#if i < network.layer_sizes.length - 1}
             <div class="flex flex-col items-center mx-1 shrink-0">
               <span class="text-xs text-muted">{network.activations[i]}</span>
               <span class="text-muted">→</span>
@@ -35,19 +35,19 @@
         {/each}
       </div>
       <div class="shrink-0 pb-2">
-        <p class="text-xl font-bold">{network.loss_function}</p>
+        <p class="text-xl font-bold">{network.loss}</p>
       </div>
     </div>
   </div>
 {:else}
   <div class="overflow-x-auto py-2 w-full text-center">
     <div class="inline-flex items-center gap-4 text-left">
-      {#each network.layers as size, i}
+      {#each network.layer_sizes as size, i}
         <div class="flex flex-col items-center gap-2">
           <span class="text-sm font-semibold text-muted tracking-wider">
             {#if i === 0}
               INPUT
-            {:else if i === network.layers.length - 1}
+            {:else if i === network.layer_sizes.length - 1}
               OUTPUT
             {:else}
               HIDDEN {i}
@@ -60,7 +60,7 @@
           </div>
         </div>
 
-        {#if i < network.layers.length - 1}
+        {#if i < network.layer_sizes.length - 1}
           <div class="flex flex-col items-center gap-2 mt-6">
             <span class="text-sm font-medium text-muted"
               >{network.activations[i]}</span

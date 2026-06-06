@@ -2,14 +2,15 @@ import type { FieldError } from "$lib/types";
 import type { Layer } from "./layer";
 
 export type Network = {
-  name: string;
   id: number;
-  layers: number[];
+  name: string;
+  created_at: string;
+  layer_sizes: number[];
   activations: string[];
-  loss_function: string;
-  loss: number;
-  epocs: number;
-  accuracy: number;
+  loss: string;
+  correct_predictions: number;
+  training_epochs: number;
+  cost: number;
 };
 
 async function delay(ms: number) {
@@ -24,52 +25,56 @@ class NetworkStore {
     this.fetch().then(() => {
       this.networks = [
         {
-          name: "Network 1",
           id: 1,
-          layers: [784, 16, 16, 10],
-          activations: ["ReLU", "ReLU", "SoftMax"],
-          loss_function: "Cross Entropy",
-          loss: 0.2,
-          epocs: 67,
-          accuracy: 6.7,
+          name: "Network 1",
+          created_at: new Date().toISOString(),
+          layer_sizes: [784, 16, 16, 10],
+          activations: ["relu", "relu", "softmax"],
+          loss: "cross_entropy",
+          correct_predictions: 670,
+          training_epochs: 67,
+          cost: 0.2,
         },
         {
-          name: "Network 2",
           id: 2,
-          layers: [784, 32, 16, 10],
-          activations: ["Sigmoid", "ReLU", "Sigmoid"],
-          loss_function: "MSE",
-          loss: 0.1,
-          epocs: 45,
-          accuracy: 87.3,
+          name: "Network 2",
+          created_at: new Date().toISOString(),
+          layer_sizes: [784, 32, 16, 10],
+          activations: ["sigmoid", "relu", "sigmoid"],
+          loss: "mse",
+          correct_predictions: 8730,
+          training_epochs: 45,
+          cost: 0.1,
         },
         {
-          name: "Network 3",
           id: 3,
-          layers: [784, 16, 16, 16, 16, 16, 16, 10],
+          name: "Network 3",
+          created_at: new Date().toISOString(),
+          layer_sizes: [784, 16, 16, 16, 16, 16, 16, 10],
           activations: [
-            "Tanh",
-            "ReLU",
-            "ReLU",
-            "ReLU",
-            "ReLU",
-            "ReLU",
-            "SoftMax",
+            "tanh",
+            "relu",
+            "relu",
+            "relu",
+            "relu",
+            "relu",
+            "softmax",
           ],
-          loss_function: "Cross Entropy",
-          loss: 0.05,
-          epocs: 30,
-          accuracy: 12.3,
+          loss: "cross_entropy",
+          correct_predictions: 1230,
+          training_epochs: 30,
+          cost: 0.05,
         },
         {
-          name: "Network 4",
           id: 4,
-          layers: [784, 128, 64, 10],
-          activations: ["ReLU", "ReLU", "SoftMax"],
-          loss_function: "Cross Entropy",
-          loss: 0.01,
-          epocs: 20,
-          accuracy: 15.6,
+          name: "Network 4",
+          created_at: new Date().toISOString(),
+          layer_sizes: [784, 128, 64, 10],
+          activations: ["relu", "relu", "softmax"],
+          loss: "cross_entropy",
+          correct_predictions: 1560,
+          training_epochs: 20,
+          cost: 0.01,
         },
       ];
     });
@@ -112,14 +117,15 @@ class NetworkStore {
       {
         name,
         id: max_id + 1,
-        layers: layers.map((l) => l.neurons),
+        created_at: new Date().toISOString(),
+        layer_sizes: layers.map((l) => l.neurons),
         activations: layers
           .filter((l) => l.kind !== "input")
           .map((l) => l.activation),
-        loss_function: loss,
-        loss: Math.random(),
-        epocs: Math.round(Math.random() * 20),
-        accuracy: Math.random() * 100,
+        loss: loss,
+        correct_predictions: Math.round(Math.random() * 10000),
+        training_epochs: Math.round(Math.random() * 20),
+        cost: Math.random(),
       },
     ];
 

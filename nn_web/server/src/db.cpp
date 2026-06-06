@@ -386,8 +386,14 @@ asio::awaitable<DBResult<std::vector<NetworkListItem>>> Db::get_networks() {
             network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
             network.correct_predictions = sqlite3_column_int(stmt, 4);
-            network.training_epochs = sqlite3_column_int(stmt, 5);
-            network.cost = sqlite3_column_double(stmt, 6);
+            network.cost = sqlite3_column_double(stmt, 5);
+            network.training_epochs = sqlite3_column_int(stmt, 6);
+
+            std::string activations_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+            nlohmann::json activations_json = nlohmann::json::parse(activations_str);
+            network.activations = activations_json.get<std::vector<std::string>>();
+
+            network.loss = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
 
             networks.push_back(network);
         }
@@ -520,7 +526,7 @@ void Db::create_statements() {
     add_stmt(get_full_network_by_id_sql, "get_full_network_by_id");
 
     const char* get_networks_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs FROM networks;)";
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, activations, loss FROM networks;)";
     add_stmt(get_networks_sql, "get_networks");
 
     const char* delete_network_by_id_sql = R"(
@@ -575,6 +581,8 @@ void to_json(json& j, const NetworkListItem& v) {
         { "correct_predictions", v.correct_predictions },
         { "training_epochs", v.training_epochs },
         { "cost", v.cost },
+        { "activations", v.activations },
+        { "loss", v.loss },
     };
 }
 
