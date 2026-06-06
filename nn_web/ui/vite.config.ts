@@ -12,4 +12,9 @@ export default defineConfig({
       $components: path.resolve("./src/lib/components"),
     },
   },
+  server: {
+    proxy: {
+      "/api": "http://localhost:8080",
+    },
+  },
 });
