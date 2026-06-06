@@ -46,8 +46,16 @@ class NetworkStore {
         {
           name: "Network 3",
           id: 3,
-          layers: [784, 64, 32, 10],
-          activations: ["Tanh", "ReLU", "SoftMax"],
+          layers: [784, 16, 16, 16, 16, 16, 16, 10],
+          activations: [
+            "Tanh",
+            "ReLU",
+            "ReLU",
+            "ReLU",
+            "ReLU",
+            "ReLU",
+            "SoftMax",
+          ],
           loss_function: "Cross Entropy",
           loss: 0.05,
           epocs: 30,
