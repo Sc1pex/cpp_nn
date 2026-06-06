@@ -81,8 +81,10 @@
           bind:value={imageIndex}
           min="1"
           max={maxIndex}
-          disabled={isPredicting}
-          class="w-20 bg-background border border-border rounded-lg px-2 py-1.5 text-sm outline-none focus:border-primary text-text disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+          readonly={isPredicting}
+          class="w-20 bg-background border border-border rounded-lg px-2 py-1.5 text-sm outline-none focus:border-primary text-text transition-opacity"
+          class:opacity-50={isPredicting}
+          class:cursor-not-allowed={isPredicting}
         />
         <Button
           variant="outline"
