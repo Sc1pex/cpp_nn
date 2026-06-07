@@ -1,6 +1,7 @@
 #include "nn_lib/network.hpp"
 #include <numeric>
 #include <ranges>
+#include "nn_lib/activation.hpp"
 #include "nn_lib/loss.hpp"
 
 namespace nn {
@@ -150,6 +151,95 @@ double Network::calculate_loss(const MatrixXd& x, const MatrixXd& y) const {
     return std::visit([&](auto&& l) {
         return l.function(a, y);
     }, m_loss);
+}
+
+Network::FFResults Network::feed_forward_train(const MatrixXd& input) const {
+    FFResults res;
+
+    res.as.reserve(m_weights.size() + 1);
+    res.zs.reserve(m_weights.size());
+
+    MatrixXd out = input;
+    res.as.push_back(out);
+
+    // Feed forward the hidden layers
+    for (auto [W, b, act] : std::views::zip(m_weights, m_biases, m_hidden_activations)) {
+        auto z = (W * out).colwise() + b;
+        res.zs.push_back(z);
+
+        out = apply_activation(act, z);
+        res.as.push_back(out);
+    }
+
+    // Feed forward the output layer
+    auto out_w = m_weights.back();
+    auto out_b = m_biases.back();
+    auto z = (out_w * out).colwise() + out_b;
+    res.zs.push_back(z);
+
+    out = apply_activation(m_output_activation, z);
+    res.as.push_back(out);
+
+    return res;
+}
+
+MatrixXd Network::output_delta(const MatrixXd& z, const MatrixXd& a, const MatrixXd& y) const {
+    return std::visit([&](const auto& act, const auto& loss) -> MatrixXd {
+        using A = std::decay_t<decltype(act)>;
+        using L = std::decay_t<decltype(loss)>;
+
+        if constexpr (std::is_same_v<A, activation::SoftMax>
+                      && std::is_same_v<L, loss::CrossEntropy>) {
+            return a - y;
+        } else if constexpr (std::is_same_v<A, activation::Sigmoid>
+                             && std::is_same_v<L, loss::CrossEntropy>) {
+            return y.array() * (a.array() - 1.);
+        } else if constexpr (std::is_same_v<A, activation::SoftMax>) {
+            auto dc_da = loss.dc_da(a, y);
+            Eigen::MatrixXd delta(a.rows(), a.cols());
+            for (int i = 0; i < a.cols(); ++i) {
+                delta.col(i) = act.jacobian(a.col(i)) * dc_da.col(i);
+            }
+            return delta;
+        } else {
+            auto dc_da = loss.dc_da(a, y);
+            auto da_dz = act.derivative(z);
+            return dc_da.array() * da_dz.array();
+        }
+    }, m_output_activation, m_loss);
+}
+
+Network::Gradients Network::compute_gradients(const MatrixXd& input, const MatrixXd& y) const {
+    auto ff = feed_forward_train(input);
+    Gradients grads;
+
+    grads.dw.resize(m_weights.size());
+    grads.db.resize(m_biases.size());
+
+    auto dz = output_delta(ff.zs.back(), ff.as.back(), y);
+
+    for (ssize_t n = m_weights.size() - 1; n >= 0; n--) {
+        grads.dw[n] = (dz * ff.as[n].transpose()) / input.cols();
+        grads.db[n] = dz.rowwise().mean();
+
+        if (n) {
+            std::visit([&](const auto& act) {
+                auto dwl = m_weights[n].transpose() * dz;
+                dz = dwl.array() * act.derivative(ff.zs[n - 1]).array();
+            }, m_hidden_activations[n - 1]);
+        }
+    }
+
+    return grads;
+}
+
+void Network::learn(const MatrixXd& input, const MatrixXd& y, double learning_rate) {
+    auto grads = compute_gradients(input, y);
+
+    for (size_t i = 0; i < m_weights.size(); ++i) {
+        m_weights[i] -= learning_rate * grads.dw[i];
+        m_biases[i] -= learning_rate * grads.db[i];
+    }
 }
 
 std::vector<double> Network::dump_weights() {

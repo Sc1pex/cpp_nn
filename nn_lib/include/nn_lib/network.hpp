@@ -34,6 +34,8 @@ public:
     Prediction predict(const MatrixXd& x, const MatrixXd& y) const;
     double calculate_loss(const MatrixXd& x, const MatrixXd& y) const;
 
+    void learn(const MatrixXd& input, const MatrixXd& y, double learning_rate);
+
     std::vector<double> dump_weights();
     std::vector<double> dump_biases();
 
@@ -43,6 +45,19 @@ private:
         const std::vector<HiddenActivation>& hidden_activations,
         const OutputActivation& output_activation, const Loss& loss
     );
+
+    struct FFResults {
+        std::vector<MatrixXd> zs;
+        std::vector<MatrixXd> as;
+    };
+    struct Gradients {
+        std::vector<MatrixXd> dw;
+        std::vector<VectorXd> db;
+    };
+
+    FFResults feed_forward_train(const MatrixXd& input) const;
+    Gradients compute_gradients(const MatrixXd& input, const MatrixXd& y) const;
+    MatrixXd output_delta(const MatrixXd& z, const MatrixXd& a, const MatrixXd& y) const;
 
     static bool validate_inputs(
         const std::vector<int>& layer_sizes, const std::vector<double>& weights,

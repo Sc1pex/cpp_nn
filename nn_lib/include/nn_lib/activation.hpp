@@ -11,6 +11,7 @@ namespace nn {
 namespace activation {
 
 using Eigen::MatrixXd;
+using Eigen::VectorXd;
 
 struct ReLU {
     MatrixXd function(const MatrixXd& x) const {
@@ -49,6 +50,12 @@ struct SoftMax {
 
         auto sum_per_col = exp_x.colwise().sum();
         return exp_x.array().rowwise() / sum_per_col.array();
+    }
+
+    MatrixXd jacobian(const VectorXd& x) const {
+        MatrixXd j = -x * x.transpose();
+        j.diagonal() += x;
+        return j;
     }
 };
 
