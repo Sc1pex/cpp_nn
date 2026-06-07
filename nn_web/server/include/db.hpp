@@ -62,6 +62,8 @@ struct NetworkListItem {
     int correct_predictions;
     int training_epochs;
     double cost;
+    std::vector<std::string> activations;
+    std::string loss;
 };
 
 struct Sample {

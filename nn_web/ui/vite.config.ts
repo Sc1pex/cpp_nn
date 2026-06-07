@@ -5,10 +5,16 @@ import path from "path";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [tailwindcss(), svelte()],
+  plugins: [svelte(), tailwindcss()],
   resolve: {
     alias: {
       $lib: path.resolve("./src/lib"),
+      $components: path.resolve("./src/lib/components"),
+    },
+  },
+  server: {
+    proxy: {
+      "/api": "http://localhost:8080",
     },
   },
 });

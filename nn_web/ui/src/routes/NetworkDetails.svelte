@@ -1,81 +1,57 @@
 <script lang="ts">
-  import { NetworkDetails } from "$lib/data/network.svelte";
-  import { Button } from "$lib/components/ui/button";
-  import * as Card from "$lib/components/ui/card";
-  import { ArrowLeft, MoveRight } from "@lucide/svelte";
-  import { navigate, route } from "../router";
-  import Prediction from "$lib/components/Prediction.svelte";
+  import { route, navigate } from "../router";
+  import { ArrowLeft } from "@lucide/svelte";
+  import Button from "$lib/components/Button.svelte";
+  import { networkStore } from "$lib/data/network.svelte";
+  import Architecture from "$lib/components/networkCard/Architecture.svelte";
+  import NetworkTester from "$lib/components/NetworkTester.svelte";
 
   const networkId = parseInt(route.getParams("/:id").id);
-  const networkDetails = new NetworkDetails(networkId);
-  const network = $derived(networkDetails.network);
+
+  const network = $derived(
+    networkStore.networks.find((n) => n.id === networkId),
+  );
 </script>
 
-{#if networkDetails.loading}
-  <div>Loading...</div>
-{:else if networkDetails.error}
-  <div class="text-red-500">Error: {networkDetails.error}</div>
-{:else if network}
-  <div class="mb-6 flex items-center gap-4">
-    <Button variant="ghost" size="icon" onclick={() => navigate("/")}>
-      <ArrowLeft />
+<main class="flex flex-col gap-6 max-w-5xl mx-auto mt-8 px-4 mb-16">
+  <div class="flex items-center gap-4 mb-2">
+    <Button variant="outline" onclick={() => navigate("/")} class="!px-3 !py-2">
+      <ArrowLeft size={20} />
     </Button>
-    <h1 class="text-3xl font-bold">{network.name}</h1>
+    {#if network}
+      <h1 class="text-3xl font-bold text-text">{network.name}</h1>
+    {/if}
   </div>
 
-  <Card.Root>
-    <Card.Header>
-      <Card.Title>Architecture</Card.Title>
-    </Card.Header>
-    <Card.Content>
-      <div class="overflow-x-auto">
+  {#if !network}
+    {#if networkStore.loading}
+      <div
+        class="flex flex-col items-center justify-center p-12 text-muted gap-4"
+      >
         <div
-          class="inline-flex w-full min-w-max items-center justify-center gap-4 py-8"
-        >
-          <div class="flex flex-col items-center gap-2">
-            <span class="text-sm text-muted-foreground">Input</span>
-            <div class="rounded-lg bg-primary/20 px-8 py-6 text-center">
-              <div class="text-2xl font-bold">{network.layer_sizes[0]}</div>
-            </div>
-            <span class="text-xs text-muted-foreground">-</span>
-          </div>
-
-          {#each network.layer_sizes.slice(1, -1) as hiddenSize, i}
-            <div class="text-muted-foreground">
-              <MoveRight class="h-6 w-6" />
-            </div>
-
-            <div class="flex flex-col items-center gap-2">
-              <span class="text-sm text-muted-foreground">Hidden {i + 1}</span>
-              <div class="rounded-lg bg-primary/20 px-8 py-6 text-center">
-                <div class="text-2xl font-bold">{hiddenSize}</div>
-              </div>
-              <span class="text-xs text-muted-foreground"
-                >{network.activations[i]}</span
-              >
-            </div>
-          {/each}
-
-          <div class="text-muted-foreground">
-            <MoveRight class="h-6 w-6" />
-          </div>
-
-          <div class="flex flex-col items-center gap-2">
-            <span class="text-sm text-muted-foreground">Output</span>
-            <div class="rounded-lg bg-primary/20 px-8 py-6 text-center">
-              <div class="text-2xl font-bold">
-                {network.layer_sizes[network.layer_sizes.length - 1]}
-              </div>
-            </div>
-            <span class="text-xs text-muted-foreground"
-              >{network.activations[network.activations.length - 1]}</span
-            >
-          </div>
-        </div>
+          class="w-8 h-8 border-4 border-border border-t-primary rounded-full animate-spin"
+        ></div>
+        <p>Loading network details...</p>
       </div>
-    </Card.Content>
-  </Card.Root>
+    {:else}
+      <div
+        class="flex flex-col items-center justify-center p-12 text-muted gap-4"
+      >
+        <p class="text-xl font-bold text-text">Network not found</p>
+        <p>The network you are looking for does not exist.</p>
+        <Button variant="outline" onclick={() => navigate("/")}
+          >Return to Networks</Button
+        >
+      </div>
+    {/if}
+  {:else}
+    <div
+      class="bg-surface border border-border rounded-2xl shadow-sm p-6 flex flex-col gap-4"
+    >
+      <h2 class="text-xl font-bold text-text">Architecture</h2>
+      <Architecture {network} variant="detailed" />
+    </div>
 
-  <div class="my-8"></div>
-  <Prediction {networkId} />
-{/if}
+    <NetworkTester networkId={network.id} />
+  {/if}
+</main>

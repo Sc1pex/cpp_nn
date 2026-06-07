@@ -1,38 +1,88 @@
-import { apiUrl } from "./common";
+import type { FieldError } from "$lib/types";
+import type { Layer } from "./layer";
 
-export type TNetworkDetails = {
+export type Network = {
   id: number;
   name: string;
   created_at: string;
   layer_sizes: number[];
+  activations: string[];
+  loss: string;
   correct_predictions: number;
   training_epochs: number;
   cost: number;
-  activations: string[];
 };
 
-export class NetworkDetails {
-  network = $state<TNetworkDetails | null>(null);
+class NetworkStore {
+  networks = $state<Network[]>([]);
   loading = $state(false);
-  error = $state<string | null>(null);
 
-  constructor(public id: number) {
+  constructor() {
     this.fetch();
   }
 
   async fetch() {
     this.loading = true;
-    this.error = null;
     try {
-      const response = await fetch(apiUrl(`networks/${this.id}`));
-      if (!response.ok) {
-        throw new Error("Network not found");
+      const res = await fetch("/api/networks");
+      if (res.ok) {
+        this.networks = await res.json();
+      } else {
+        console.error("Failed to fetch networks", await res.text());
       }
-      this.network = await response.json();
     } catch (e) {
-      this.error = e instanceof Error ? e.message : "Failed to load network";
-    } finally {
-      this.loading = false;
+      console.error(e);
     }
+    this.loading = false;
   }
+
+  delete = async (id: number) => {
+    try {
+      const res = await fetch("/api/networks/" + id, { method: "DELETE" });
+      if (res.ok) {
+        this.networks = this.networks.filter((n) => n.id !== id);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  create = async (
+    name: string,
+    layers: Layer[],
+    loss: string,
+  ): Promise<FieldError[]> => {
+    try {
+      const payload = {
+        name,
+        layer_sizes: layers.map((l) => l.neurons),
+        activations: layers
+          .filter((l) => l.kind !== "input")
+          .map((l) => l.activation),
+        loss,
+      };
+
+      const res = await fetch("/api/networks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await this.fetch();
+        return [];
+      } else {
+        const data = await res.json();
+        if (data.field && data.error) {
+          return [data];
+        }
+        return [{ field: "name", error: data.message || "Unknown error" }];
+      }
+    } catch (e) {
+      console.error(e);
+      return [{ field: "name", error: "Failed to connect to backend" }];
+    }
+  };
 }
+
+export const networkStore = new NetworkStore();
