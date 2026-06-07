@@ -13,83 +13,38 @@ export type Network = {
   cost: number;
 };
 
-async function delay(ms: number) {
-  return new Promise((res) => setTimeout(res, ms));
-}
-
 class NetworkStore {
   networks = $state<Network[]>([]);
   loading = $state(false);
 
   constructor() {
-    this.fetch().then(() => {
-      this.networks = [
-        {
-          id: 1,
-          name: "Network 1",
-          created_at: new Date().toISOString(),
-          layer_sizes: [784, 16, 16, 10],
-          activations: ["relu", "relu", "softmax"],
-          loss: "cross_entropy",
-          correct_predictions: 670,
-          training_epochs: 67,
-          cost: 0.2,
-        },
-        {
-          id: 2,
-          name: "Network 2",
-          created_at: new Date().toISOString(),
-          layer_sizes: [784, 32, 16, 10],
-          activations: ["sigmoid", "relu", "sigmoid"],
-          loss: "mse",
-          correct_predictions: 8730,
-          training_epochs: 45,
-          cost: 0.1,
-        },
-        {
-          id: 3,
-          name: "Network 3",
-          created_at: new Date().toISOString(),
-          layer_sizes: [784, 16, 16, 16, 16, 16, 16, 10],
-          activations: [
-            "tanh",
-            "relu",
-            "relu",
-            "relu",
-            "relu",
-            "relu",
-            "softmax",
-          ],
-          loss: "cross_entropy",
-          correct_predictions: 1230,
-          training_epochs: 30,
-          cost: 0.05,
-        },
-        {
-          id: 4,
-          name: "Network 4",
-          created_at: new Date().toISOString(),
-          layer_sizes: [784, 128, 64, 10],
-          activations: ["relu", "relu", "softmax"],
-          loss: "cross_entropy",
-          correct_predictions: 1560,
-          training_epochs: 20,
-          cost: 0.01,
-        },
-      ];
-    });
+    this.fetch();
   }
 
   async fetch() {
     this.loading = true;
-    await delay(1000);
+    try {
+      const res = await fetch("/api/networks");
+      if (res.ok) {
+        this.networks = await res.json();
+      } else {
+        console.error("Failed to fetch networks", await res.text());
+      }
+    } catch (e) {
+      console.error(e);
+    }
     this.loading = false;
   }
 
   delete = async (id: number) => {
-    await this.fetch();
-
-    this.networks = this.networks.filter((n) => n.id !== id);
+    try {
+      const res = await fetch("/api/networks/" + id, { method: "DELETE" });
+      if (res.ok) {
+        this.networks = this.networks.filter((n) => n.id !== id);
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   create = async (
@@ -97,39 +52,36 @@ class NetworkStore {
     layers: Layer[],
     loss: string,
   ): Promise<FieldError[]> => {
-    await this.fetch();
-
-    if (name.length < 3 || name.length > 32) {
-      return [
-        {
-          field: "name",
-          error: "Name must be between 3 and 32 characters long",
-        },
-      ];
-    }
-
-    let max_id = 0;
-    for (let i = 0; i < this.networks.length; i++) {
-      max_id = Math.max(max_id, this.networks[i].id);
-    }
-    this.networks = [
-      ...this.networks,
-      {
+    try {
+      const payload = {
         name,
-        id: max_id + 1,
-        created_at: new Date().toISOString(),
         layer_sizes: layers.map((l) => l.neurons),
         activations: layers
           .filter((l) => l.kind !== "input")
           .map((l) => l.activation),
-        loss: loss,
-        correct_predictions: Math.round(Math.random() * 10000),
-        training_epochs: Math.round(Math.random() * 20),
-        cost: Math.random(),
-      },
-    ];
+        loss,
+      };
 
-    return [];
+      const res = await fetch("/api/networks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await this.fetch();
+        return [];
+      } else {
+        const data = await res.json();
+        if (data.field && data.error) {
+          return [data];
+        }
+        return [{ field: "name", error: data.message || "Unknown error" }];
+      }
+    } catch (e) {
+      console.error(e);
+      return [{ field: "name", error: "Failed to connect to backend" }];
+    }
   };
 }
 
