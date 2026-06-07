@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Network } from "$lib/data/network.svelte";
   import { ArrowRight } from "@lucide/svelte";
+  import { FORMAT_LABELS } from "$lib/utils";
 
   interface Props {
     network: Network;
@@ -17,7 +18,9 @@
       <p class="text-muted text-sm">Loss function</p>
     </div>
     <div class="flex justify-between items-end gap-6 overflow-hidden">
-      <div class="flex items-center gap-1 overflow-x-auto flex-nowrap pb-3 w-full">
+      <div
+        class="flex items-center gap-1 overflow-x-auto flex-nowrap pb-3 w-full"
+      >
         {#each network.layer_sizes as layer, i}
           <div class="flex flex-col items-center shrink-0">
             <span class="text-xs opacity-0">·</span>
@@ -28,14 +31,19 @@
           </div>
           {#if i < network.layer_sizes.length - 1}
             <div class="flex flex-col items-center mx-1 shrink-0">
-              <span class="text-xs text-muted">{network.activations[i]}</span>
+              <span class="text-xs text-muted"
+                >{FORMAT_LABELS[network.activations[i]] ||
+                  network.activations[i]}</span
+              >
               <span class="text-muted">→</span>
             </div>
           {/if}
         {/each}
       </div>
       <div class="shrink-0 pb-2">
-        <p class="text-xl font-bold">{network.loss}</p>
+        <p class="text-xl font-bold">
+          {FORMAT_LABELS[network.loss] || network.loss}
+        </p>
       </div>
     </div>
   </div>
@@ -63,7 +71,8 @@
         {#if i < network.layer_sizes.length - 1}
           <div class="flex flex-col items-center gap-2 mt-6">
             <span class="text-sm font-medium text-muted"
-              >{network.activations[i]}</span
+              >{FORMAT_LABELS[network.activations[i]] ||
+                network.activations[i]}</span
             >
             <div class="text-primary opacity-60">
               <ArrowRight size={28} strokeWidth={2.5} />

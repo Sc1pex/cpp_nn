@@ -3,7 +3,7 @@
   import { Dialog } from "bits-ui";
   import Button from "./Button.svelte";
   import Select from "./Select.svelte";
-  import { cx } from "$lib/utils";
+  import { cx, FORMAT_LABELS } from "$lib/utils";
   import type { Layer } from "$lib/data/layer";
   import type { FieldError } from "$lib/types";
 
@@ -13,13 +13,18 @@
   ];
 
   function activationOptionsForLayer(layer: Layer) {
+    let options: string[] = [];
     if (layer.kind === "input") {
-      return [];
+      options = [];
     } else if (layer.kind === "hidden") {
-      return ["relu", "sigmoid", "linear"];
+      options = ["relu", "sigmoid", "linear", "tanh"];
     } else {
-      return ["softmax", "sigmoid", "linear"];
+      options = ["softmax", "sigmoid", "linear"];
     }
+    return options.map((opt) => ({
+      value: opt,
+      label: FORMAT_LABELS[opt] || opt,
+    }));
   }
 
   function defaultLayers(): Layer[] {
