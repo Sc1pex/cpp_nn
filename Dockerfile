@@ -33,16 +33,15 @@ RUN mkdir -p mnist_data && \
     curl -L "https://storage.googleapis.com/cvdf-datasets/mnist/t10k-labels-idx1-ubyte.gz" -o "t10k-labels-idx1-ubyte.gz" && \
     gunzip *.gz
 
-FROM oven/bun:1-alpine AS ui-builder
+FROM node:alpine AS ui-builder
 
 WORKDIR /build
 
-COPY nn_web/ui/package.json nn_web/ui/bun.lockb* ./
+COPY nn_web/ui/package.json nn_web/ui/package-lock.json* ./
 COPY nn_web/ui/ ./
 
-RUN bun install
-ENV VITE_API_BASE_URL=""
-RUN bun run build
+RUN npm install
+RUN npm run build
 
 FROM alpine:3.21
 
