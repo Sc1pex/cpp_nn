@@ -361,12 +361,12 @@ asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id
     );
 }
 
-asio::awaitable<DBResult<std::vector<NetworkListItem>>> Db::get_networks() {
-    co_return co_await run_on_pool<std::vector<NetworkListItem>>(
-        [this]() -> std::expected<std::vector<NetworkListItem>, DBError> {
+asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
+    co_return co_await run_on_pool<std::vector<NetworkInfo>>(
+        [this]() -> std::expected<std::vector<NetworkInfo>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_networks"];
 
-        std::vector<NetworkListItem> networks;
+        std::vector<NetworkInfo> networks;
 
         int rc;
         while (true) {
@@ -375,7 +375,7 @@ asio::awaitable<DBResult<std::vector<NetworkListItem>>> Db::get_networks() {
                 break;
             }
 
-            NetworkListItem network;
+            NetworkInfo network;
             network.id = sqlite3_column_int(stmt, 0);
             network.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
             network.created_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
@@ -618,20 +618,6 @@ void to_json(json& j, const NetworkFull& v) {
 }
 
 void to_json(json& j, const NetworkInfo& v) {
-    j = json{
-        { "id", v.id },
-        { "name", v.name },
-        { "created_at", v.created_at },
-        { "layer_sizes", v.layer_sizes },
-        { "correct_predictions", v.correct_predictions },
-        { "training_epochs", v.training_epochs },
-        { "cost", v.cost },
-        { "activations", v.activations },
-        { "loss", v.loss },
-    };
-}
-
-void to_json(json& j, const NetworkListItem& v) {
     j = json{
         { "id", v.id },
         { "name", v.name },

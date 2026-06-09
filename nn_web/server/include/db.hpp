@@ -54,18 +54,6 @@ struct NetworkInfo {
     std::string loss;
 };
 
-struct NetworkListItem {
-    int id;
-    std::string name;
-    std::string created_at;
-    std::vector<int> layer_sizes;
-    int correct_predictions;
-    int training_epochs;
-    double cost;
-    std::vector<std::string> activations;
-    std::string loss;
-};
-
 struct Sample {
     std::vector<uint8_t> input;
     int expected_output;
@@ -73,7 +61,6 @@ struct Sample {
 
 void to_json(json& j, const NetworkFull& v);
 void to_json(json& j, const NetworkInfo& v);
-void to_json(json& j, const NetworkListItem& v);
 void to_json(json& j, const Sample& v);
 
 class Db {
@@ -87,7 +74,7 @@ public:
     asio::awaitable<DBResult<void>> add_network(const AddNetwork&& network);
     asio::awaitable<DBResult<std::optional<NetworkFull>>> get_full_network_by_id(const int id);
     asio::awaitable<DBResult<std::optional<NetworkInfo>>> get_network_by_id(const int id);
-    asio::awaitable<DBResult<std::vector<NetworkListItem>>> get_networks();
+    asio::awaitable<DBResult<std::vector<NetworkInfo>>> get_networks();
     asio::awaitable<DBResult<bool>> delete_network_by_id(const int id);
 
     asio::awaitable<DBResult<std::optional<Sample>>> get_train_sample_by_index(const int index);
