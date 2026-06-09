@@ -5,8 +5,9 @@
   const { networkId }: { networkId: number } = $props();
 
   let datasetType = $state<"train" | "test">("test");
-  let imageIndex = $state(42);
+  let rawImageIndex = $state(42);
   let maxIndex = $derived(datasetType === "train" ? 60000 : 10000);
+  let imageIndex = $derived(Math.min(rawImageIndex, maxIndex));
 
   let expectedDigit = $state(0);
   let predictedDigit = $state(0);
@@ -31,8 +32,8 @@
 
   $effect(() => {
     const type = datasetType;
-    const idx = imageIndex;
     const id = networkId;
+    const idx = imageIndex;
 
     isPredicting = true;
 
@@ -49,7 +50,7 @@
   });
 
   function randomize() {
-    imageIndex = Math.floor(Math.random() * maxIndex) + 1;
+    rawImageIndex = Math.floor(Math.random() * maxIndex) + 1;
   }
 </script>
 
@@ -78,7 +79,7 @@
         >
         <input
           type="number"
-          bind:value={imageIndex}
+          bind:value={rawImageIndex}
           min="1"
           max={maxIndex}
           readonly={isPredicting}
