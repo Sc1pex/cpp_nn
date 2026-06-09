@@ -297,6 +297,21 @@ std::optional<std::vector<double>> Network::train_sgd(
     return avg_losses;
 }
 
+int Network::evaluate_onehot(const MatrixXd& x, const std::vector<int>& labels) const {
+    int correct = 0;
+
+    for (int i = 0; i < labels.size(); i++) {
+        auto output = feed_forward(x.col(i));
+        int predicted_label;
+        output.col(1).maxCoeff(&predicted_label);
+        if (predicted_label == labels[i]) {
+            correct++;
+        }
+    }
+
+    return correct;
+}
+
 std::vector<double> Network::dump_weights() {
     std::vector<double> dumped;
     for (const auto& W : m_weights) {

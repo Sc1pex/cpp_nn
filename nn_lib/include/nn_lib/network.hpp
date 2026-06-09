@@ -46,6 +46,7 @@ public:
     std::optional<std::vector<double>> train_sgd(
         const MatrixXd& inputs, const MatrixXd& targets, const SGDHyperparams& hyperparams
     );
+    int evaluate_onehot(const MatrixXd& x, const std::vector<int>& labels) const;
 
     std::vector<double> dump_weights();
     std::vector<double> dump_biases();
