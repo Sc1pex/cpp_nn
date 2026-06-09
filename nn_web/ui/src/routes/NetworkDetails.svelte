@@ -5,6 +5,7 @@
   import { networkStore } from "$lib/data/network.svelte";
   import Architecture from "$lib/components/networkCard/Architecture.svelte";
   import NetworkTester from "$lib/components/NetworkTester.svelte";
+  import NetworkTrainer from "$lib/components/NetworkTrainer.svelte";
 
   const networkId = parseInt(route.getParams("/:id").id);
 
@@ -52,6 +53,7 @@
       <Architecture {network} variant="detailed" />
     </div>
 
+    <NetworkTrainer networkId={network.id} />
     <NetworkTester networkId={network.id} />
   {/if}
 </main>

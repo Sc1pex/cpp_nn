@@ -13,7 +13,7 @@
   const { network, onDelete }: Props = $props();
 </script>
 
-<Card class="p-6 flex flex-col gap-4">
+<Card class="flex flex-col gap-4">
   <h2 class="font-bold text-xl">{network.name}</h2>
   <Stats {network} />
   <Architecture {network} />

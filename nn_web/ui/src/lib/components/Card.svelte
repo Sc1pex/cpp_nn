@@ -10,6 +10,8 @@
   let { class: cls = "", children }: Props = $props();
 </script>
 
-<div class={cx("bg-surface border border-border rounded-xl shadow-sm", cls)}>
+<div
+  class={cx("bg-surface border border-border rounded-xl shadow-sm p-6", cls)}
+>
   {@render children?.()}
 </div>
