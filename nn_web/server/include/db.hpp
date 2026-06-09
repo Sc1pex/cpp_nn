@@ -92,6 +92,11 @@ public:
 
     asio::awaitable<DBResult<std::optional<Sample>>> get_train_sample_by_index(const int index);
     asio::awaitable<DBResult<std::optional<Sample>>> get_test_sample_by_index(const int index);
+    asio::awaitable<DBResult<std::vector<Sample>>> get_all_train_samples();
+    asio::awaitable<DBResult<void>> update_network_weights(
+        int id, const std::vector<double>& weights, const std::vector<double>& biases,
+        int epochs_added
+    );
 
 private:
     bool check_data_exists();

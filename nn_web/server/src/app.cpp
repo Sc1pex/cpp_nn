@@ -99,6 +99,7 @@ App::App(std::optional<std::string_view> static_assets_path)
     m_router->route("/api/networks/:id", MAKE_API_ROUTE(del, remove_network));
     m_router->route("/api/networks/:id/predict/:source/:idx", MAKE_API_ROUTE(post, predict));
     m_router->route("/api/networks/:id/predict", MAKE_API_ROUTE(post, predict_custom));
+    m_router->route("/api/networks/:id/train", MAKE_API_ROUTE(post, train_network));
 
     m_router->route("/api/data/:source/:idx", MAKE_API_ROUTE(get, get_data));
 }
@@ -398,6 +399,98 @@ asio::awaitable<ApiResponse> App::predict_custom(const httc::Request& req) {
     co_return ApiResponse::ok(
         json{ { "output", std::vector<double>(output.data(), output.data() + output.size()) } }
     );
+}
+
+struct TrainRequest {
+    int epochs = 1;
+    int batch_size = 32;
+    double learning_rate = 0.01;
+};
+
+void from_json(const json& j, TrainRequest& req) {
+    if (j.contains("epochs"))
+        j.at("epochs").get_to(req.epochs);
+    if (j.contains("batch_size"))
+        j.at("batch_size").get_to(req.batch_size);
+    if (j.contains("learning_rate"))
+        j.at("learning_rate").get_to(req.learning_rate);
+}
+
+asio::awaitable<ApiResponse> App::train_network(const httc::Request& req) {
+    int network_id;
+    try {
+        network_id = std::stoi(req.path_params.at("id"));
+    } catch (...) {
+        co_return ApiResponse::bad_request("Invalid network ID");
+    }
+
+    TrainRequest train_req;
+    try {
+        if (!req.body.empty()) {
+            json j = json::parse(req.body);
+            train_req = j.get<TrainRequest>();
+        }
+    } catch (...) {
+        co_return ApiResponse::bad_request("Invalid JSON body");
+    }
+
+    auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
+    if (!network_res) {
+        co_return ApiResponse::internal_error("Failed to retrieve network");
+    }
+    if (!network_res.value()) {
+        co_return ApiResponse::not_found("Network not found");
+    }
+    auto network_info = network_res.value().value();
+
+    auto hidden_activations_view =
+        network_info.activations | std::views::take(network_info.activations.size() - 1);
+    auto hidden_activations = nn::strs_to_hidden_activation(hidden_activations_view).value();
+    auto output_activation = nn::str_to_output_activation(network_info.activations.back()).value();
+    auto loss = nn::str_to_loss(network_info.loss).value();
+
+    auto network_opt = nn::Network::from_data(
+        network_info.layer_sizes, network_info.weights, network_info.biases, hidden_activations,
+        output_activation, loss
+    );
+    if (!network_opt) {
+        co_return ApiResponse::internal_error("Failed to parse network from db");
+    }
+    auto network = network_opt.value();
+
+    auto samples_res = co_await m_state->db.get_all_train_samples();
+    if (!samples_res) {
+        co_return ApiResponse::internal_error("Failed to load training data");
+    }
+    auto samples = samples_res.value();
+
+    int num_samples = samples.size();
+    if (num_samples == 0) {
+        co_return ApiResponse::internal_error("No training data available");
+    }
+
+    Eigen::MatrixXd inputs(784, num_samples);
+    Eigen::MatrixXd targets = Eigen::MatrixXd::Zero(10, num_samples);
+
+    for (int i = 0; i < num_samples; ++i) {
+        auto input_vec =
+            Eigen::Map<Eigen::Matrix<uint8_t, 784, 1>>(samples[i].input.data()).cast<double>();
+        inputs.col(i) = input_vec / 255.0;
+        targets(samples[i].expected_output, i) = 1.0;
+    }
+
+    nn::SGDHyperparams hyperparams{ train_req.learning_rate, train_req.epochs,
+                                    train_req.batch_size };
+    network.train_sgd(inputs, targets, hyperparams);
+
+    auto update_res = co_await m_state->db.update_network_weights(
+        network_id, network.dump_weights(), network.dump_biases(), train_req.epochs
+    );
+    if (!update_res) {
+        co_return ApiResponse::internal_error("Failed to save trained network");
+    }
+
+    co_return ApiResponse::ok(json{ { "message", "Network trained successfully" } });
 }
 
 asio::awaitable<ApiResponse> App::get_data(const httc::Request& req) {

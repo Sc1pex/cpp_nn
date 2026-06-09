@@ -56,6 +56,7 @@ private:
 
     asio::awaitable<ApiResponse> predict(const httc::Request& req);
     asio::awaitable<ApiResponse> predict_custom(const httc::Request& req);
+    asio::awaitable<ApiResponse> train_network(const httc::Request& req);
 
     asio::awaitable<ApiResponse> get_data(const httc::Request& req);
 

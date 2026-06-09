@@ -389,7 +389,8 @@ asio::awaitable<DBResult<std::vector<NetworkListItem>>> Db::get_networks() {
             network.cost = sqlite3_column_double(stmt, 5);
             network.training_epochs = sqlite3_column_int(stmt, 6);
 
-            std::string activations_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+            std::string activations_str =
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
             nlohmann::json activations_json = nlohmann::json::parse(activations_str);
             network.activations = activations_json.get<std::vector<std::string>>();
 
@@ -495,6 +496,56 @@ asio::awaitable<DBResult<std::optional<Sample>>> Db::get_test_sample_by_index(co
     );
 }
 
+asio::awaitable<DBResult<std::vector<Sample>>> Db::get_all_train_samples() {
+    co_return co_await run_on_pool<std::vector<Sample>>(
+        [this]() -> std::expected<std::vector<Sample>, DBError> {
+        sqlite3_stmt* stmt = m_stmts["get_all_train_samples"];
+
+        std::vector<Sample> samples;
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            Sample sample;
+            const void* input_blob = sqlite3_column_blob(stmt, 0);
+            int input_size = sqlite3_column_bytes(stmt, 0);
+            sample.input.resize(input_size);
+            std::memcpy(sample.input.data(), input_blob, input_size);
+            sample.expected_output = sqlite3_column_int(stmt, 1);
+            samples.push_back(std::move(sample));
+        }
+
+        sqlite3_reset(stmt);
+        return samples;
+    }, m_pool
+    );
+}
+
+asio::awaitable<DBResult<void>> Db::update_network_weights(
+    int id, const std::vector<double>& weights, const std::vector<double>& biases, int epochs_added
+) {
+    co_return co_await run_on_pool<void>(
+        [this, id, weights, biases, epochs_added]() -> std::expected<void, DBError> {
+        sqlite3_stmt* stmt = m_stmts["update_network_weights"];
+
+        sqlite3_bind_blob(
+            stmt, 1, weights.data(), static_cast<int>(weights.size() * sizeof(double)),
+            SQLITE_STATIC
+        );
+        sqlite3_bind_blob(
+            stmt, 2, biases.data(), static_cast<int>(biases.size() * sizeof(double)), SQLITE_STATIC
+        );
+        sqlite3_bind_int(stmt, 3, epochs_added);
+        sqlite3_bind_int(stmt, 4, id);
+
+        int rc = sqlite3_step(stmt);
+        sqlite3_reset(stmt);
+
+        if (rc != SQLITE_DONE) {
+            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        }
+        return {};
+    }, m_pool
+    );
+}
+
 void Db::create_statements() {
     auto add_stmt = [this](const char* sql, const char* name) {
         sqlite3_stmt* stmt;
@@ -540,6 +591,14 @@ void Db::create_statements() {
     const char* get_test_sample_by_index_sql = R"(
     SELECT input, output FROM test_data WHERE id = ?;)";
     add_stmt(get_test_sample_by_index_sql, "get_test_sample_by_index");
+
+    const char* get_all_train_samples_sql = R"(
+    SELECT input, output FROM train_data;)";
+    add_stmt(get_all_train_samples_sql, "get_all_train_samples");
+
+    const char* update_network_weights_sql = R"(
+    UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ? WHERE id = ?;)";
+    add_stmt(update_network_weights_sql, "update_network_weights");
 }
 
 void to_json(json& j, const NetworkFull& v) {
