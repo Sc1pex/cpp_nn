@@ -218,6 +218,9 @@ Network::Gradients Network::compute_gradients(const MatrixXd& input, const Matri
     grads.dw.resize(m_weights.size());
     grads.db.resize(m_biases.size());
 
+    grads.loss = std::visit([&](auto&& l) {
+        return l.function(ff.as.back(), y);
+    }, m_loss);
     auto dz = output_delta(ff.zs.back(), ff.as.back(), y);
 
     for (ssize_t n = m_weights.size() - 1; n >= 0; n--) {
@@ -235,18 +238,24 @@ Network::Gradients Network::compute_gradients(const MatrixXd& input, const Matri
     return grads;
 }
 
-void Network::learn(const MatrixXd& input, const MatrixXd& y, double learning_rate) {
+double Network::learn(const MatrixXd& input, const MatrixXd& y, double learning_rate) {
     auto grads = compute_gradients(input, y);
 
     for (size_t i = 0; i < m_weights.size(); ++i) {
         m_weights[i] -= learning_rate * grads.dw[i];
         m_biases[i] -= learning_rate * grads.db[i];
     }
+
+    return grads.loss;
 }
 
-void Network::train_sgd(
+std::optional<std::vector<double>> Network::train_sgd(
     const MatrixXd& inputs, const MatrixXd& targets, const SGDHyperparams& hyperparams
 ) {
+    std::vector<double> avg_losses;
+    double avg_loss = 0;
+    int loss_count = 0;
+
     int num_samples = inputs.cols();
     std::vector<int> indices(num_samples);
     std::iota(indices.begin(), indices.end(), 0);
@@ -266,9 +275,26 @@ void Network::train_sgd(
                 batch_targets.col(j) = targets.col(idx);
             }
 
-            learn(batch_inputs, batch_targets, hyperparams.learning_rate);
+            avg_loss += learn(batch_inputs, batch_targets, hyperparams.learning_rate);
+            loss_count++;
+
+            if (!hyperparams.log_interval) {
+                continue;
+            }
+            auto log_interval = *hyperparams.log_interval;
+            if ((i / hyperparams.batch_size + 1) % log_interval == 0
+                || i + hyperparams.batch_size >= num_samples) {
+                avg_losses.push_back(avg_loss / loss_count);
+                avg_loss = 0;
+                loss_count = 0;
+            }
         }
     }
+
+    if (!hyperparams.log_interval) {
+        return std::nullopt;
+    }
+    return avg_losses;
 }
 
 std::vector<double> Network::dump_weights() {

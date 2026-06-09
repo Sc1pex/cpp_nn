@@ -20,6 +20,8 @@ struct SGDHyperparams {
     double learning_rate;
     int epochs;
     int batch_size;
+    // Window width for reporting average loss (in batches)
+    std::optional<int> log_interval;
 };
 
 class Network {
@@ -40,8 +42,8 @@ public:
     Prediction predict(const MatrixXd& x, const MatrixXd& y) const;
     double calculate_loss(const MatrixXd& x, const MatrixXd& y) const;
 
-    void learn(const MatrixXd& input, const MatrixXd& y, double learning_rate);
-    void train_sgd(
+    double learn(const MatrixXd& input, const MatrixXd& y, double learning_rate);
+    std::optional<std::vector<double>> train_sgd(
         const MatrixXd& inputs, const MatrixXd& targets, const SGDHyperparams& hyperparams
     );
 
@@ -62,6 +64,7 @@ private:
     struct Gradients {
         std::vector<MatrixXd> dw;
         std::vector<VectorXd> db;
+        double loss;
     };
 
     FFResults feed_forward_train(const MatrixXd& input) const;
