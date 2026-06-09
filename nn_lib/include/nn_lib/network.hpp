@@ -16,6 +16,12 @@ struct Prediction {
     double loss;
 };
 
+struct SGDHyperparams {
+    double learning_rate;
+    int epochs;
+    int batch_size;
+};
+
 class Network {
 public:
     static std::optional<Network> from_data(
@@ -35,6 +41,9 @@ public:
     double calculate_loss(const MatrixXd& x, const MatrixXd& y) const;
 
     void learn(const MatrixXd& input, const MatrixXd& y, double learning_rate);
+    void train_sgd(
+        const MatrixXd& inputs, const MatrixXd& targets, const SGDHyperparams& hyperparams
+    );
 
     std::vector<double> dump_weights();
     std::vector<double> dump_biases();

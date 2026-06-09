@@ -1,5 +1,7 @@
 #include "nn_lib/network.hpp"
+#include <algorithm>
 #include <numeric>
+#include <random>
 #include <ranges>
 #include "nn_lib/activation.hpp"
 #include "nn_lib/loss.hpp"
@@ -239,6 +241,33 @@ void Network::learn(const MatrixXd& input, const MatrixXd& y, double learning_ra
     for (size_t i = 0; i < m_weights.size(); ++i) {
         m_weights[i] -= learning_rate * grads.dw[i];
         m_biases[i] -= learning_rate * grads.db[i];
+    }
+}
+
+void Network::train_sgd(
+    const MatrixXd& inputs, const MatrixXd& targets, const SGDHyperparams& hyperparams
+) {
+    int num_samples = inputs.cols();
+    std::vector<int> indices(num_samples);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::mt19937 g;
+
+    for (int epoch = 0; epoch < hyperparams.epochs; ++epoch) {
+        std::shuffle(indices.begin(), indices.end(), g);
+
+        for (int i = 0; i < num_samples; i += hyperparams.batch_size) {
+            int current_batch_size = std::min(hyperparams.batch_size, num_samples - i);
+            MatrixXd batch_inputs(inputs.rows(), current_batch_size);
+            MatrixXd batch_targets(targets.rows(), current_batch_size);
+
+            for (int j = 0; j < current_batch_size; ++j) {
+                int idx = indices[i + j];
+                batch_inputs.col(j) = inputs.col(idx);
+                batch_targets.col(j) = targets.col(idx);
+            }
+
+            learn(batch_inputs, batch_targets, hyperparams.learning_rate);
+        }
     }
 }
 
