@@ -299,11 +299,11 @@ std::optional<std::vector<double>> Network::train_sgd(
 
 int Network::evaluate_onehot(const MatrixXd& x, const std::vector<int>& labels) const {
     int correct = 0;
+    auto output = feed_forward(x);
 
     for (int i = 0; i < labels.size(); i++) {
-        auto output = feed_forward(x.col(i));
         int predicted_label;
-        output.col(1).maxCoeff(&predicted_label);
+        output.col(i).maxCoeff(&predicted_label);
         if (predicted_label == labels[i]) {
             correct++;
         }

@@ -293,8 +293,8 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
         network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
         network.correct_predictions = sqlite3_column_int(stmt, 4);
-        network.training_epochs = sqlite3_column_int(stmt, 5);
-        network.cost = sqlite3_column_double(stmt, 6);
+        network.cost = sqlite3_column_double(stmt, 5);
+        network.training_epochs = sqlite3_column_int(stmt, 6);
 
         std::string activations_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
         nlohmann::json activations_json = nlohmann::json::parse(activations_str);
@@ -336,8 +336,8 @@ asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id
         network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
         network.correct_predictions = sqlite3_column_int(stmt, 4);
-        network.training_epochs = sqlite3_column_int(stmt, 5);
-        network.cost = sqlite3_column_double(stmt, 6);
+        network.cost = sqlite3_column_double(stmt, 5);
+        network.training_epochs = sqlite3_column_int(stmt, 6);
 
         const void* weights_blob = sqlite3_column_blob(stmt, 7);
         int weights_size = sqlite3_column_bytes(stmt, 7);
@@ -606,7 +606,7 @@ void to_json(json& j, const NetworkFull& v) {
         { "id", v.id },
         { "name", v.name },
         { "created_at", v.created_at },
-        { "layet_sizes", v.layer_sizes },
+        { "layer_sizes", v.layer_sizes },
         { "correct_predictions", v.correct_predictions },
         { "training_epochs", v.training_epochs },
         { "cost", v.cost },

@@ -334,8 +334,8 @@ asio::awaitable<ApiResponse> App::predict(const httc::Request& req) {
     auto network = network_opt.value();
 
     auto sample = sample_res.value().value();
-    auto input_matrix =
-        Eigen::Map<Eigen::Matrix<uint8_t, 784, 1>>(sample.input.data()).cast<double>();
+    Eigen::MatrixXd input_matrix =
+        Eigen::Map<Eigen::Matrix<uint8_t, 784, 1>>(sample.input.data()).cast<double>() / 255.0;
     Eigen::MatrixXd expected_output = Eigen::MatrixXd::Zero(10, 1);
     expected_output(sample.expected_output, 0) = 1.;
     auto prediction = network.predict(input_matrix, expected_output);
