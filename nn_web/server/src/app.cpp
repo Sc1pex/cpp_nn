@@ -530,8 +530,11 @@ asio::awaitable<ApiResponse> App::get_data(const httc::Request& req) {
 
 void ApiResponse::to_response(httc::Response& res) {
     res.status = status;
+    if (!resp.has_value()) {
+        return;
+    }
     res.headers.set("Content-Type", "application/json");
-    res.set_body(resp.dump());
+    res.set_body(resp->dump());
 }
 
 void to_json(json& j, const FieldError& v) {

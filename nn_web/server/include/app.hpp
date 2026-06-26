@@ -3,6 +3,7 @@
 #include <httc/router.hpp>
 #include <httc/status.hpp>
 #include <nlohmann/json.hpp>
+#include "httc/response.hpp"
 #include "state.hpp"
 
 struct FieldError {
@@ -13,7 +14,22 @@ void to_json(json& j, const FieldError& v);
 
 struct ApiResponse {
     httc::StatusCode status;
-    json resp;
+    std::optional<json> resp;
+
+    // Static helper to initialize streaming on a response
+    static asio::awaitable<httc::Response::ChunkedStream> start_stream(
+        httc::Response& res, httc::StatusCode status = httc::StatusCode::OK,
+        std::string content_type = "text/plain"
+    ) {
+        res.status = status;
+        res.headers.set("Content-Type", std::move(content_type));
+        co_return co_await res.send_chunked();
+    }
+
+    // A sentinel response that indicates the handler already streamed everything
+    static ApiResponse stream_finished() {
+        return ApiResponse{ httc::StatusCode::OK, std::nullopt };
+    }
 
     static ApiResponse ok(json resp) {
         return ApiResponse{ httc::StatusCode::OK, resp };
