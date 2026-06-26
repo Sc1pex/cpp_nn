@@ -9,11 +9,13 @@
   let learningRate = $state(0.01);
 
   let training = $state(false);
+  let currentEpoch = $state(0);
   let result = $state<{ message?: string; error?: string } | null>(null);
 
   async function train() {
     training = true;
     result = null;
+    currentEpoch = 0;
     try {
       const res = await fetch(
         `http://localhost:8080/api/networks/${networkId}/train`,
@@ -29,11 +31,40 @@
           }),
         },
       );
-      const data = await res.json();
+
       if (!res.ok) {
+        const data = await res.json();
         throw new Error(data.error || "Failed to train network");
       }
-      result = { message: data.message };
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+
+          if (trimmed.startsWith("error:")) {
+            throw new Error(trimmed.replace("error:", "").trim());
+          }
+
+          const epochNum = parseInt(trimmed, 10);
+          if (!isNaN(epochNum)) {
+            currentEpoch = epochNum;
+          }
+        }
+      }
+
+      result = { message: "Network trained successfully" };
     } catch (e: any) {
       result = { error: e.message || "Failed to train network" };
     } finally {
@@ -84,12 +115,12 @@
 
     {#if training}
       <span class="text-sm text-muted"
-        >This may take a while depending on epochs...</span
+        >Training (Epoch {currentEpoch}/{epochs})...</span
       >
     {/if}
 
     {#if result?.message}
-      <span class="text-sm text-green-500 font-medium">{result.message}</span>
+      <span class="text-sm text-primary font-medium">{result.message}</span>
     {/if}
     {#if result?.error}
       <span class="text-sm text-red-500 font-medium">{result.error}</span>
