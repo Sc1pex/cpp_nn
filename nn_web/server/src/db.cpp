@@ -30,6 +30,10 @@ Db::Db(
 Db::~Db() {
     m_pool.join();
 
+    for (auto& [name, stmt] : m_stmts) {
+        sqlite3_finalize(stmt);
+    }
+
     if (m_db) {
         spdlog::info("Closing database");
         sqlite3_close(m_db);
@@ -208,9 +212,11 @@ void Db::add_test_train_data(
     }
 }
 
-template<typename T>
-asio::awaitable<std::expected<T, DBError>>
-    run_on_pool(std::function<std::expected<T, DBError>()> operation, asio::thread_pool& pool) {
+template<typename F>
+asio::awaitable<std::decay_t<std::invoke_result_t<F>>>
+    run_on_pool(F&& operation, asio::thread_pool& pool) {
+    using ReturnType = std::decay_t<std::invoke_result_t<F>>;
+
     auto init = [](auto completion_handler, asio::thread_pool& pool, auto operation) {
         asio::post(
             pool, [completion_handler = std::move(completion_handler),
@@ -221,14 +227,13 @@ asio::awaitable<std::expected<T, DBError>>
         );
     };
 
-    co_return co_await async_initiate<
-        decltype(asio::use_awaitable), void(std::expected<T, DBError>)>(
-        init, asio::use_awaitable, std::ref(pool), std::move(operation)
+    co_return co_await async_initiate<decltype(asio::use_awaitable), void(ReturnType)>(
+        init, asio::use_awaitable, std::ref(pool), std::forward<F>(operation)
     );
 }
 
 asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
-    co_return co_await run_on_pool<void>([this, network]() -> std::expected<void, DBError> {
+    co_return co_await run_on_pool([this, network]() -> std::expected<void, DBError> {
         sqlite3_stmt* stmt = m_stmts["add_network"];
 
         sqlite3_bind_text(stmt, 1, network.name.c_str(), -1, SQLITE_STATIC);
@@ -266,7 +271,7 @@ asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
 }
 
 asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(const int id) {
-    co_return co_await run_on_pool<std::optional<NetworkInfo>>(
+    co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkInfo>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_network_by_id"];
 
@@ -309,7 +314,7 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
 }
 
 asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id(const int id) {
-    co_return co_await run_on_pool<std::optional<NetworkFull>>(
+    co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkFull>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_full_network_by_id"];
 
@@ -362,8 +367,7 @@ asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id
 }
 
 asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
-    co_return co_await run_on_pool<std::vector<NetworkInfo>>(
-        [this]() -> std::expected<std::vector<NetworkInfo>, DBError> {
+    co_return co_await run_on_pool([this]() -> std::expected<std::vector<NetworkInfo>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_networks"];
 
         std::vector<NetworkInfo> networks;
@@ -407,12 +411,11 @@ asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
 
         sqlite3_reset(stmt);
         return networks;
-    }, m_pool
-    );
+    }, m_pool);
 }
 
 asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
-    co_return co_await run_on_pool<bool>([this, id]() -> std::expected<bool, DBError> {
+    co_return co_await run_on_pool([this, id]() -> std::expected<bool, DBError> {
         sqlite3_stmt* stmt = m_stmts["delete_network_by_id"];
 
         sqlite3_bind_int(stmt, 1, id);
@@ -431,7 +434,7 @@ asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
 }
 
 asio::awaitable<DBResult<std::optional<Sample>>> Db::get_train_sample_by_index(const int index) {
-    co_return co_await run_on_pool<std::optional<Sample>>(
+    co_return co_await run_on_pool(
         [this, index]() -> std::expected<std::optional<Sample>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_train_sample_by_index"];
 
@@ -464,7 +467,7 @@ asio::awaitable<DBResult<std::optional<Sample>>> Db::get_train_sample_by_index(c
 }
 
 asio::awaitable<DBResult<std::optional<Sample>>> Db::get_test_sample_by_index(const int index) {
-    co_return co_await run_on_pool<std::optional<Sample>>(
+    co_return co_await run_on_pool(
         [this, index]() -> std::expected<std::optional<Sample>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_test_sample_by_index"];
 
@@ -497,8 +500,7 @@ asio::awaitable<DBResult<std::optional<Sample>>> Db::get_test_sample_by_index(co
 }
 
 asio::awaitable<DBResult<std::vector<Sample>>> Db::get_all_train_samples() {
-    co_return co_await run_on_pool<std::vector<Sample>>(
-        [this]() -> std::expected<std::vector<Sample>, DBError> {
+    co_return co_await run_on_pool([this]() -> std::expected<std::vector<Sample>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_all_train_samples"];
 
         std::vector<Sample> samples;
@@ -514,14 +516,13 @@ asio::awaitable<DBResult<std::vector<Sample>>> Db::get_all_train_samples() {
 
         sqlite3_reset(stmt);
         return samples;
-    }, m_pool
-    );
+    }, m_pool);
 }
 
 asio::awaitable<DBResult<void>> Db::update_network_weights(
     int id, const std::vector<double>& weights, const std::vector<double>& biases, int epochs_added
 ) {
-    co_return co_await run_on_pool<void>(
+    co_return co_await run_on_pool(
         [this, id, weights, biases, epochs_added]() -> std::expected<void, DBError> {
         sqlite3_stmt* stmt = m_stmts["update_network_weights"];
 
