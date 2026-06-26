@@ -17,7 +17,7 @@ struct ApiResponse {
     std::optional<json> resp;
 
     // Static helper to initialize streaming on a response
-    static asio::awaitable<httc::Response::ChunkedStream> start_stream(
+    static asio::awaitable<httc::Response::ChunkedStream> stream(
         httc::Response& res, httc::StatusCode status = httc::StatusCode::OK,
         std::string content_type = "text/plain"
     ) {
@@ -27,7 +27,7 @@ struct ApiResponse {
     }
 
     // A sentinel response that indicates the handler already streamed everything
-    static ApiResponse stream_finished() {
+    static ApiResponse stream_end() {
         return ApiResponse{ httc::StatusCode::OK, std::nullopt };
     }
 
@@ -72,7 +72,7 @@ private:
 
     asio::awaitable<ApiResponse> predict(const httc::Request& req);
     asio::awaitable<ApiResponse> predict_custom(const httc::Request& req);
-    asio::awaitable<ApiResponse> train_network(const httc::Request& req);
+    asio::awaitable<ApiResponse> train_network(const httc::Request& req, httc::Response& res);
 
     asio::awaitable<ApiResponse> get_data(const httc::Request& req);
 

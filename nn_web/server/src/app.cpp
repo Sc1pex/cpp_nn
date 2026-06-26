@@ -46,8 +46,13 @@ void from_json(const json& j, AddNetworkRequest& req) {
 #define MAKE_API_ROUTE(method, handler) \
     method { \
         [this](auto& req, auto& res) -> asio::awaitable<void> { \
-            auto resp = co_await handler(req); \
-            resp.to_response(res); \
+            if constexpr (requires { this->handler(req, res); }) { \
+                auto resp = co_await this->handler(req, res); \
+                resp.to_response(res); \
+            } else { \
+                auto resp = co_await this->handler(req); \
+                resp.to_response(res); \
+            } \
             co_return; \
         } \
     }
@@ -416,7 +421,7 @@ void from_json(const json& j, TrainRequest& req) {
         j.at("learning_rate").get_to(req.learning_rate);
 }
 
-asio::awaitable<ApiResponse> App::train_network(const httc::Request& req) {
+asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::Response& res) {
     int network_id;
     try {
         network_id = std::stoi(req.path_params.at("id"));
@@ -479,18 +484,29 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req) {
         targets(samples[i].expected_output, i) = 1.0;
     }
 
-    nn::SGDHyperparams hyperparams{ train_req.learning_rate, train_req.epochs,
-                                    train_req.batch_size };
-    network.train_sgd(inputs, targets, hyperparams);
+    auto stream = co_await ApiResponse::stream(res);
+
+    nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size };
+    auto ex = co_await asio::this_coro::executor;
+    for (int epoch = 0; epoch < train_req.epochs; epoch++) {
+        // Transfer to the thread pool
+        co_await asio::post(req.thread_pool_executor(), asio::use_awaitable);
+
+        network.train_sgd(inputs, targets, hyperparams);
+
+        // Transfer back to the main thread
+        co_await asio::post(ex, asio::use_awaitable);
+        co_await stream.write(std::format("{}\n", epoch + 1));
+    }
 
     auto update_res = co_await m_state->db.update_network_weights(
         network_id, network.dump_weights(), network.dump_biases(), train_req.epochs
     );
     if (!update_res) {
-        co_return ApiResponse::internal_error("Failed to save trained network");
+        co_await stream.write("Failed to save trained network\n");
     }
 
-    co_return ApiResponse::ok(json{ { "message", "Network trained successfully" } });
+    co_return ApiResponse::stream_end();
 }
 
 asio::awaitable<ApiResponse> App::get_data(const httc::Request& req) {
