@@ -54,20 +54,12 @@ struct NetworkInfo {
     std::string loss;
 };
 
-struct Sample {
-    std::vector<uint8_t> input;
-    int expected_output;
-};
-
 void to_json(json& j, const NetworkFull& v);
 void to_json(json& j, const NetworkInfo& v);
-void to_json(json& j, const Sample& v);
 
 class Db {
 public:
-    Db(std::string_view db_file_path, std::string_view train_input_path,
-       std::string_view train_output_path, std::string_view test_input_path,
-       std::string_view test_output_path);
+    Db(std::string_view db_file_path);
 
     ~Db();
 
@@ -77,21 +69,12 @@ public:
     asio::awaitable<DBResult<std::vector<NetworkInfo>>> get_networks();
     asio::awaitable<DBResult<bool>> delete_network_by_id(const int id);
 
-    asio::awaitable<DBResult<std::optional<Sample>>> get_train_sample_by_index(const int index);
-    asio::awaitable<DBResult<std::optional<Sample>>> get_test_sample_by_index(const int index);
-    asio::awaitable<DBResult<std::vector<Sample>>> get_all_train_samples();
     asio::awaitable<DBResult<void>> update_network_weights(
         int id, const std::vector<double>& weights, const std::vector<double>& biases,
         int epochs_added
     );
 
 private:
-    bool check_data_exists();
-    void add_test_train_data(
-        std::string_view train_input_path, std::string_view train_output_path,
-        std::string_view test_input_path, std::string_view test_output_path
-    );
-
     void create_statements();
     void create_tables();
 

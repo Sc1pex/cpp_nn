@@ -3,27 +3,15 @@
 #include <asio.hpp>
 #include <expected>
 #include <functional>
-#include "idx.hpp"
 #include "nlohmann/json.hpp"
 
-Db::Db(
-    std::string_view db_file_path, std::string_view train_input_path,
-    std::string_view train_output_path, std::string_view test_input_path,
-    std::string_view test_output_path
-)
-: m_pool(1) {
+Db::Db(std::string_view db_file_path) : m_pool(1) {
     spdlog::info("Opening database at {}", db_file_path);
     if (sqlite3_open(db_file_path.data(), &m_db) != SQLITE_OK) {
         throw std::runtime_error("Failed to open database");
     }
 
     create_tables();
-
-    if (!check_data_exists()) {
-        spdlog::info("Adding training and test data to database");
-        add_test_train_data(train_input_path, train_output_path, test_input_path, test_output_path);
-    }
-
     create_statements();
 }
 
@@ -70,22 +58,6 @@ void Db::create_tables() {
     );)";
     create_table(create_networks_table_sql);
 
-    const char* create_train_data_table_sql = R"(
-    CREATE TABLE IF NOT EXISTS train_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        input BLOB NOT NULL,   -- serialized vector<uint8_t>
-        output INTEGER NOT NULL
-    );)";
-    create_table(create_train_data_table_sql);
-
-    const char* create_test_data_table_sql = R"(
-    CREATE TABLE IF NOT EXISTS test_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        input BLOB NOT NULL,   -- serialized vector<uint8_t>
-        output INTEGER NOT NULL
-    );)";
-    create_table(create_test_data_table_sql);
-
     const char* create_training_sessions_table_sql = R"(
     CREATE TABLE IF NOT EXISTS training_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,119 +69,6 @@ void Db::create_tables() {
         FOREIGN KEY(network_id) REFERENCES networks(id)
     );)";
     create_table(create_training_sessions_table_sql);
-}
-
-bool Db::check_data_exists() {
-    const char* count_train_sql = "SELECT COUNT(*) FROM train_data;";
-
-    int train_count = 0;
-    char* err_msg = nullptr;
-    int result =
-        sqlite3_exec(m_db, count_train_sql, [](void* count_ptr, int, char** argv, char**) -> int {
-        int* count = static_cast<int*>(count_ptr);
-        *count = std::stoi(argv[0]);
-        return 0;
-    }, &train_count, &err_msg);
-    if (result != SQLITE_OK) {
-        std::string error = "Failed to count training data: ";
-        error += err_msg;
-        sqlite3_free(err_msg);
-        throw std::runtime_error(error);
-    }
-
-    if (train_count != 60000) {
-        return false;
-    }
-
-    const char* count_test_sql = "SELECT COUNT(*) FROM test_data;";
-    int test_count = 0;
-    result =
-        sqlite3_exec(m_db, count_test_sql, [](void* count_ptr, int, char** argv, char**) -> int {
-        int* count = static_cast<int*>(count_ptr);
-        *count = std::stoi(argv[0]);
-        return 0;
-    }, &test_count, &err_msg);
-    if (result != SQLITE_OK) {
-        std::string error = "Failed to count test data: ";
-        error += err_msg;
-        sqlite3_free(err_msg);
-        throw std::runtime_error(error);
-    }
-
-    return test_count == 10000;
-}
-
-void Db::add_test_train_data(
-    std::string_view train_input_path, std::string_view train_output_path,
-    std::string_view test_input_path, std::string_view test_output_path
-) {
-    try {
-        auto train_inputs = idx3_read_file(std::string(train_input_path)).value();
-        auto train_outputs = idx1_read_file(std::string(train_output_path)).value();
-        spdlog::info(
-            "Loaded {} training inputs and {} training outputs", train_inputs.size(),
-            train_outputs.size()
-        );
-
-        auto test_inputs = idx3_read_file(std::string(test_input_path)).value();
-        auto test_outputs = idx1_read_file(std::string(test_output_path)).value();
-        spdlog::info(
-            "Loaded {} test inputs and {} test outputs", test_inputs.size(), test_outputs.size()
-        );
-
-        auto insert_data = [this](const char* sql, const auto& inputs, const auto& outputs) {
-            sqlite3_stmt* stmt;
-            if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
-                sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
-                throw std::runtime_error("Failed to prepare insert statement");
-            }
-
-            for (size_t i = 0; i < inputs.size(); i++) {
-                const auto& input_matrix = inputs[i];
-                std::vector<uint8_t> input_vector(input_matrix.size());
-                for (int r = 0; r < input_matrix.rows(); r++) {
-                    for (int c = 0; c < input_matrix.cols(); c++) {
-                        input_vector[r * input_matrix.cols() + c] =
-                            static_cast<uint8_t>(input_matrix(r, c));
-                    }
-                }
-
-                sqlite3_bind_blob(
-                    stmt, 1, input_vector.data(), static_cast<int>(input_vector.size()),
-                    SQLITE_STATIC
-                );
-                sqlite3_bind_int(stmt, 2, static_cast<int>(outputs[i]));
-
-                if (sqlite3_step(stmt) != SQLITE_DONE) {
-                    sqlite3_finalize(stmt);
-                    sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
-                    throw std::runtime_error("Failed to insert training data");
-                }
-                sqlite3_reset(stmt);
-            }
-            sqlite3_finalize(stmt);
-        };
-
-        if (sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr) != SQLITE_OK) {
-            throw std::runtime_error("Failed to begin transaction for data insertion");
-        }
-
-        insert_data(
-            "INSERT INTO train_data (input, output) VALUES (?, ?);", train_inputs, train_outputs
-        );
-        insert_data(
-            "INSERT INTO test_data (input, output) VALUES (?, ?);", test_inputs, test_outputs
-        );
-
-        if (sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr) != SQLITE_OK) {
-            throw std::runtime_error("Failed to commit transaction for test data insertion");
-        }
-
-        spdlog::info("Successfully added training and test data to database");
-    } catch (std::bad_expected_access<std::string>& e) {
-        spdlog::error("Failed to load IDX data: {}", e.error());
-        throw std::runtime_error("Failed to load IDX data: " + e.error());
-    }
 }
 
 template<typename F>
@@ -433,92 +292,6 @@ asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
     }, m_pool);
 }
 
-asio::awaitable<DBResult<std::optional<Sample>>> Db::get_train_sample_by_index(const int index) {
-    co_return co_await run_on_pool(
-        [this, index]() -> std::expected<std::optional<Sample>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_train_sample_by_index"];
-
-        sqlite3_bind_int(stmt, 1, index);
-
-        int rc = sqlite3_step(stmt);
-        if (rc != SQLITE_ROW) {
-            rc = sqlite3_extended_errcode(m_db);
-            sqlite3_reset(stmt);
-            if (rc == SQLITE_DONE) {
-                return std::nullopt;
-            } else {
-                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
-            }
-        }
-
-        Sample sample;
-
-        const void* input_blob = sqlite3_column_blob(stmt, 0);
-        int input_size = sqlite3_column_bytes(stmt, 0);
-        sample.input.resize(input_size);
-        std::memcpy(sample.input.data(), input_blob, input_size);
-
-        sample.expected_output = sqlite3_column_int(stmt, 1);
-
-        sqlite3_reset(stmt);
-        return sample;
-    }, m_pool
-    );
-}
-
-asio::awaitable<DBResult<std::optional<Sample>>> Db::get_test_sample_by_index(const int index) {
-    co_return co_await run_on_pool(
-        [this, index]() -> std::expected<std::optional<Sample>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_test_sample_by_index"];
-
-        sqlite3_bind_int(stmt, 1, index);
-
-        int rc = sqlite3_step(stmt);
-        if (rc != SQLITE_ROW) {
-            rc = sqlite3_extended_errcode(m_db);
-            sqlite3_reset(stmt);
-            if (rc == SQLITE_DONE) {
-                return std::nullopt;
-            } else {
-                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
-            }
-        }
-
-        Sample sample;
-
-        const void* input_blob = sqlite3_column_blob(stmt, 0);
-        int input_size = sqlite3_column_bytes(stmt, 0);
-        sample.input.resize(input_size);
-        std::memcpy(sample.input.data(), input_blob, input_size);
-
-        sample.expected_output = sqlite3_column_int(stmt, 1);
-
-        sqlite3_reset(stmt);
-        return sample;
-    }, m_pool
-    );
-}
-
-asio::awaitable<DBResult<std::vector<Sample>>> Db::get_all_train_samples() {
-    co_return co_await run_on_pool([this]() -> std::expected<std::vector<Sample>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_all_train_samples"];
-
-        std::vector<Sample> samples;
-        while (sqlite3_step(stmt) == SQLITE_ROW) {
-            Sample sample;
-            const void* input_blob = sqlite3_column_blob(stmt, 0);
-            int input_size = sqlite3_column_bytes(stmt, 0);
-            sample.input.resize(input_size);
-            std::memcpy(sample.input.data(), input_blob, input_size);
-            sample.expected_output = sqlite3_column_int(stmt, 1);
-            samples.push_back(std::move(sample));
-        }
-
-        sqlite3_reset(stmt);
-        return samples;
-    }, m_pool);
-}
-
 asio::awaitable<DBResult<void>> Db::update_network_weights(
     int id, const std::vector<double>& weights, const std::vector<double>& biases, int epochs_added
 ) {
@@ -585,18 +358,6 @@ void Db::create_statements() {
     DELETE FROM networks WHERE id = ?;)";
     add_stmt(delete_network_by_id_sql, "delete_network_by_id");
 
-    const char* get_train_sample_by_index_sql = R"(
-    SELECT input, output FROM train_data WHERE id = ?;)";
-    add_stmt(get_train_sample_by_index_sql, "get_train_sample_by_index");
-
-    const char* get_test_sample_by_index_sql = R"(
-    SELECT input, output FROM test_data WHERE id = ?;)";
-    add_stmt(get_test_sample_by_index_sql, "get_test_sample_by_index");
-
-    const char* get_all_train_samples_sql = R"(
-    SELECT input, output FROM train_data;)";
-    add_stmt(get_all_train_samples_sql, "get_all_train_samples");
-
     const char* update_network_weights_sql = R"(
     UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ? WHERE id = ?;)";
     add_stmt(update_network_weights_sql, "update_network_weights");
@@ -629,12 +390,5 @@ void to_json(json& j, const NetworkInfo& v) {
         { "cost", v.cost },
         { "activations", v.activations },
         { "loss", v.loss },
-    };
-}
-
-void to_json(json& j, const Sample& v) {
-    j = json{
-        { "input", v.input },
-        { "expected_output", v.expected_output },
     };
 }
