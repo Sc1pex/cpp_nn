@@ -10,7 +10,6 @@ target_sources(nn_server
     PRIVATE
         ./src/app.cpp
         ./src/db.cpp
-        ./src/idx.cpp
         ./src/main.cpp
 
     PUBLIC
@@ -20,6 +19,5 @@ target_sources(nn_server
         FILES
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/app.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/db.hpp
-            ${PROJECT_SOURCE_DIR}/nn_web/server/include/idx.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/state.hpp
 )
