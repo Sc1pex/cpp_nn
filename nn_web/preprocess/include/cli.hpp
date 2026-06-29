@@ -2,8 +2,7 @@
 
 #include <string>
 
-class CliArgs {
-public:
+struct CliArgs {
     static CliArgs parse(int argc, char** argv);
 
     std::string train_inputs_in() const {
@@ -31,7 +30,6 @@ public:
         return output_dir + "/test_labels.bin";
     }
 
-private:
     std::string input_dir;
     std::string output_dir;
 };
