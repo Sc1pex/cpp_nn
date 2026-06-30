@@ -44,7 +44,8 @@ public:
 
     double learn(const MatrixXd& input, const MatrixXd& y, double learning_rate);
     std::optional<std::vector<double>> train_sgd(
-        const MatrixXd& inputs, const MatrixXd& targets, const SGDHyperparams& hyperparams
+        const Eigen::Ref<const Eigen::MatrixXd>& inputs,
+        const Eigen::Ref<const Eigen::MatrixXd>& targets, const SGDHyperparams& hyperparams
     );
     int evaluate_onehot(const MatrixXd& x, const std::vector<int>& labels) const;
 
