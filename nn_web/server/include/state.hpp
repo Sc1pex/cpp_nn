@@ -16,10 +16,10 @@ struct Sample {
 
 struct State {
     State()
-    : db("nn_web.db"), train_inputs("mnist_data/train_inputs.bin", TRAIN_SIZE, IMAGE_SIZE),
-      train_labels("mnist_data/train_labels.bin", TRAIN_SIZE, LABEL_SIZE),
-      test_inputs("mnist_data/test_inputs.bin", TEST_SIZE, IMAGE_SIZE),
-      test_labels("mnist_data/test_labels.bin", TEST_SIZE, LABEL_SIZE) {
+    : db("nn_web.db"), train_inputs("mnist_data/train_inputs.bin", IMAGE_SIZE, TRAIN_SIZE),
+      train_labels("mnist_data/train_labels.bin", LABEL_SIZE, TRAIN_SIZE),
+      test_inputs("mnist_data/test_inputs.bin", IMAGE_SIZE, TEST_SIZE),
+      test_labels("mnist_data/test_labels.bin", LABEL_SIZE, TEST_SIZE) {
     }
 
     std::optional<Sample> get_test_sample(int index) const;
