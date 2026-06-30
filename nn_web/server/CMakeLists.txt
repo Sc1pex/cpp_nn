@@ -12,6 +12,7 @@ target_sources(nn_server
         ./src/db.cpp
         ./src/main.cpp
         ./src/memmat.cpp
+        ./src/state.cpp
 
     PUBLIC
         FILE_SET HEADERS
