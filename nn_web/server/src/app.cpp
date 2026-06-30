@@ -458,15 +458,12 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
     auto stream = co_await ApiResponse::stream(res);
 
     nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size };
-    auto ex = co_await asio::this_coro::executor;
     for (int epoch = 0; epoch < train_req.epochs; epoch++) {
-        // Transfer to the thread pool
-        co_await asio::post(req.thread_pool_executor(), asio::use_awaitable);
+        co_await asio::co_spawn(req.thread_pool_executor(), [&]() -> asio::awaitable<void> {
+            network.train_sgd(inputs, labels, hyperparams);
+            co_return;
+        }, asio::use_awaitable);
 
-        network.train_sgd(inputs, labels, hyperparams);
-
-        // Transfer back to the main thread
-        co_await asio::post(ex, asio::use_awaitable);
         co_await stream.write(std::format("{}\n", epoch + 1));
     }
 
