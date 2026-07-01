@@ -250,7 +250,8 @@ double Network::learn(const MatrixXd& input, const MatrixXd& y, double learning_
 }
 
 std::optional<std::vector<double>> Network::train_sgd(
-    const MatrixXd& inputs, const MatrixXd& targets, const SGDHyperparams& hyperparams
+    const Eigen::Ref<const Eigen::MatrixXd>& inputs,
+    const Eigen::Ref<const Eigen::MatrixXd>& targets, const SGDHyperparams& hyperparams
 ) {
     std::vector<double> avg_losses;
     double avg_loss = 0;

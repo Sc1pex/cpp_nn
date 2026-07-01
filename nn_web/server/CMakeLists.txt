@@ -10,8 +10,9 @@ target_sources(nn_server
     PRIVATE
         ./src/app.cpp
         ./src/db.cpp
-        ./src/idx.cpp
         ./src/main.cpp
+        ./src/memmat.cpp
+        ./src/state.cpp
 
     PUBLIC
         FILE_SET HEADERS
@@ -20,6 +21,6 @@ target_sources(nn_server
         FILES
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/app.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/db.hpp
-            ${PROJECT_SOURCE_DIR}/nn_web/server/include/idx.hpp
+            ${PROJECT_SOURCE_DIR}/nn_web/server/include/memmat.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/state.hpp
 )

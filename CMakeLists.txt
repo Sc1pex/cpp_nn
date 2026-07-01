@@ -46,3 +46,4 @@ FetchContent_MakeAvailable(spdlog)
 
 add_subdirectory(nn_lib)
 add_subdirectory(nn_web/server)
+add_subdirectory(nn_web/preprocess)

@@ -287,24 +287,17 @@ asio::awaitable<ApiResponse> App::predict(const httc::Request& req) {
         co_return ApiResponse::bad_request("Invalid network ID");
     }
 
-    std::expected<std::optional<Sample>, DBError> sample_res;
+    std::optional<Sample> sample_res;
     auto source = req.path_params.at("source");
     if (source == "test") {
-        sample_res = co_await m_state->db.get_test_sample_by_index(index);
+        sample_res = m_state->get_test_sample(index);
     } else if (source == "train") {
-        sample_res = co_await m_state->db.get_train_sample_by_index(index);
+        sample_res = m_state->get_train_sample(index);
     } else {
         co_return ApiResponse::bad_request("Invalid source");
     }
 
     if (!sample_res) {
-        spdlog::error(
-            "Failed to retrieve sample from source {} with index {}: {} {}", source, index,
-            sample_res.error().message, sample_res.error().code
-        );
-        co_return ApiResponse::internal_error("Failed to retrieve training sample");
-    }
-    if (!sample_res.value()) {
         spdlog::info("Sample from source {} with index {} not found", source, index);
         co_return ApiResponse::not_found("Training sample not found");
     }
@@ -338,12 +331,8 @@ asio::awaitable<ApiResponse> App::predict(const httc::Request& req) {
     );
     auto network = network_opt.value();
 
-    auto sample = sample_res.value().value();
-    Eigen::MatrixXd input_matrix =
-        Eigen::Map<Eigen::Matrix<uint8_t, 784, 1>>(sample.input.data()).cast<double>() / 255.0;
-    Eigen::MatrixXd expected_output = Eigen::MatrixXd::Zero(10, 1);
-    expected_output(sample.expected_output, 0) = 1.;
-    auto prediction = network.predict(input_matrix, expected_output);
+    auto sample = sample_res.value();
+    auto prediction = network.predict(sample.input, sample.label);
 
     co_return ApiResponse::ok(
         json{ { "output",
@@ -463,39 +452,18 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
     }
     auto network = network_opt.value();
 
-    auto samples_res = co_await m_state->db.get_all_train_samples();
-    if (!samples_res) {
-        co_return ApiResponse::internal_error("Failed to load training data");
-    }
-    auto samples = samples_res.value();
-
-    int num_samples = samples.size();
-    if (num_samples == 0) {
-        co_return ApiResponse::internal_error("No training data available");
-    }
-
-    Eigen::MatrixXd inputs(784, num_samples);
-    Eigen::MatrixXd targets = Eigen::MatrixXd::Zero(10, num_samples);
-
-    for (int i = 0; i < num_samples; ++i) {
-        auto input_vec =
-            Eigen::Map<Eigen::Matrix<uint8_t, 784, 1>>(samples[i].input.data()).cast<double>();
-        inputs.col(i) = input_vec / 255.0;
-        targets(samples[i].expected_output, i) = 1.0;
-    }
+    auto inputs = m_state->train_inputs.mat();
+    auto labels = m_state->train_labels.mat();
 
     auto stream = co_await ApiResponse::stream(res);
 
     nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size };
-    auto ex = co_await asio::this_coro::executor;
     for (int epoch = 0; epoch < train_req.epochs; epoch++) {
-        // Transfer to the thread pool
-        co_await asio::post(req.thread_pool_executor(), asio::use_awaitable);
+        co_await asio::co_spawn(req.thread_pool_executor(), [&]() -> asio::awaitable<void> {
+            network.train_sgd(inputs, labels, hyperparams);
+            co_return;
+        }, asio::use_awaitable);
 
-        network.train_sgd(inputs, targets, hyperparams);
-
-        // Transfer back to the main thread
-        co_await asio::post(ex, asio::use_awaitable);
         co_await stream.write(std::format("{}\n", epoch + 1));
     }
 
@@ -518,30 +486,23 @@ asio::awaitable<ApiResponse> App::get_data(const httc::Request& req) {
         co_return ApiResponse::bad_request("Invalid index");
     }
 
-    std::expected<std::optional<Sample>, DBError> sample_res;
+    std::optional<Sample> sample_res;
 
     auto source = req.path_params.at("source");
     if (source == "test") {
-        sample_res = co_await m_state->db.get_test_sample_by_index(index);
+        sample_res = m_state->get_test_sample(index);
     } else if (source == "train") {
-        sample_res = co_await m_state->db.get_train_sample_by_index(index);
+        sample_res = m_state->get_train_sample(index);
     } else {
         co_return ApiResponse::bad_request("Invalid source");
     }
 
     if (!sample_res) {
-        spdlog::error(
-            "Failed to retrieve sample from source {} with index {}: {} {}", source, index,
-            sample_res.error().message, sample_res.error().code
-        );
-        co_return ApiResponse::internal_error("Failed to retrieve training sample");
-    }
-    if (!sample_res.value()) {
         spdlog::info("Sample from source {} with index {} not found", source, index);
         co_return ApiResponse::not_found("Training sample not found");
     }
 
-    co_return ApiResponse::ok(sample_res.value().value());
+    co_return ApiResponse::ok(sample_res.value());
 }
 
 void ApiResponse::to_response(httc::Response& res) {
