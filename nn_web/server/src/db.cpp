@@ -72,22 +72,13 @@ void Db::create_tables() {
 }
 
 template<typename F>
-asio::awaitable<std::decay_t<std::invoke_result_t<F>>>
-    run_on_pool(F&& operation, asio::thread_pool& pool) {
-    using ReturnType = std::decay_t<std::invoke_result_t<F>>;
-
-    auto init = [](auto completion_handler, asio::thread_pool& pool, auto operation) {
-        asio::post(
-            pool, [completion_handler = std::move(completion_handler),
-                   operation = std::move(operation)]() mutable {
-            auto result = operation();
-            std::move(completion_handler)(result);
-        }
-        );
-    };
-
-    co_return co_await async_initiate<decltype(asio::use_awaitable), void(ReturnType)>(
-        init, asio::use_awaitable, std::ref(pool), std::forward<F>(operation)
+asio::awaitable<std::invoke_result_t<F>> run_on_pool(F&& operation, asio::thread_pool& pool) {
+    using ReturnType = std::invoke_result_t<F>;
+    co_return co_await asio::co_spawn(
+        pool.executor(),
+        [](op = std::forward<F>(operation)) mutable -> asio::awaitable<ReturnType> {
+        co_return op();
+    }, asio::use_awaitable
     );
 }
 
