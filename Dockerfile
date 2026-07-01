@@ -14,6 +14,7 @@ WORKDIR /build
 COPY CMakeLists.txt CMakePresets.json ./
 COPY nn_lib/ ./nn_lib/
 COPY nn_web/server/ ./nn_web/server/
+COPY nn_web/preprocess/ ./nn_web/preprocess/
 
 RUN cmake --preset release \
     && cmake --build --preset release
@@ -32,6 +33,18 @@ RUN mkdir -p mnist_data && \
     curl -L "https://storage.googleapis.com/cvdf-datasets/mnist/t10k-images-idx3-ubyte.gz" -o "t10k-images-idx3-ubyte.gz" && \
     curl -L "https://storage.googleapis.com/cvdf-datasets/mnist/t10k-labels-idx1-ubyte.gz" -o "t10k-labels-idx1-ubyte.gz" && \
     gunzip *.gz
+
+FROM alpine:3.21 AS data-preprocessor
+
+RUN apk add --no-cache \
+    libstdc++
+
+WORKDIR /data
+
+COPY --from=data-downloader /data/mnist_data ./mnist_data
+COPY --from=cpp-builder /build/build/release/nn_web/preprocess/preprocess ./
+
+RUN ./preprocess --input ./mnist_data --output ./mnist_data
 
 FROM node:alpine AS ui-builder
 
@@ -52,7 +65,7 @@ WORKDIR /app
 
 COPY --from=cpp-builder /build/build/release/nn_web/server/nn_server ./
 COPY --from=ui-builder /build/dist ./assets
-COPY --from=data-downloader /data/mnist_data ./mnist_data
+COPY --from=data-preprocessor /data/mnist_data ./mnist_data
 
 ENV ASSETS_PATH=/app/assets
 
