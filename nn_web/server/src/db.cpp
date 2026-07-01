@@ -74,12 +74,9 @@ void Db::create_tables() {
 template<typename F>
 asio::awaitable<std::invoke_result_t<F>> run_on_pool(F&& operation, asio::thread_pool& pool) {
     using ReturnType = std::invoke_result_t<F>;
-    co_return co_await asio::co_spawn(
-        pool.executor(),
-        [](op = std::forward<F>(operation)) mutable -> asio::awaitable<ReturnType> {
-        co_return op();
-    }, asio::use_awaitable
-    );
+    co_return co_await asio::co_spawn(pool.executor(), [&]() -> asio::awaitable<ReturnType> {
+        co_return operation();
+    }, asio::use_awaitable);
 }
 
 asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
