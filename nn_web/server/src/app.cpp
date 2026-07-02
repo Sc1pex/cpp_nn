@@ -105,6 +105,9 @@ App::App(std::optional<std::string_view> static_assets_path)
     m_router->route("/api/networks/:id/predict/:source/:idx", MAKE_API_ROUTE(post, predict));
     m_router->route("/api/networks/:id/predict", MAKE_API_ROUTE(post, predict_custom));
     m_router->route("/api/networks/:id/train", MAKE_API_ROUTE(post, train_network));
+    m_router->route(
+        "/api/networks/:id/training-sessions", MAKE_API_ROUTE(get, get_training_sessions)
+    );
 
     m_router->route("/api/data/:source/:idx", MAKE_API_ROUTE(get, get_data));
 }
@@ -454,24 +457,76 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
 
     auto inputs = m_state->train_inputs.mat();
     auto labels = m_state->train_labels.mat();
+    auto test_inputs = m_state->test_inputs.mat();
+    auto test_labels = m_state->test_labels.mat();
 
     auto stream = co_await ApiResponse::stream(res);
 
-    nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size };
+    // ~10 loss reports per epoch regardless of batch size
+    int num_batches =
+        (static_cast<int>(inputs.cols()) + train_req.batch_size - 1) / train_req.batch_size;
+    int log_interval = std::max(1, num_batches / 10);
+
+    nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size,
+                                    log_interval };
+
+    int global_step = 0;
     for (int epoch = 0; epoch < train_req.epochs; epoch++) {
-        co_await asio::co_spawn(req.thread_pool_executor(), [&]() -> asio::awaitable<void> {
-            network.train_sgd(inputs, labels, hyperparams);
-            co_return;
+        auto epoch_losses = co_await asio::co_spawn(
+            req.thread_pool_executor(),
+            [&]() -> asio::awaitable<std::optional<std::vector<double>>> {
+            co_return network.train_sgd(inputs, labels, hyperparams);
+        }, asio::use_awaitable
+        );
+
+        // Stream one loss event per log-interval window
+        double sum_loss = 0.0;
+        if (epoch_losses) {
+            for (double loss_val : *epoch_losses) {
+                sum_loss += loss_val;
+                auto msg =
+                    json{
+                        { "type", "loss" },
+                        { "step", ++global_step },
+                        { "epoch", epoch + 1 },
+                        { "loss", loss_val },
+                    }
+                        .dump();
+                co_await stream.write(msg + "\n");
+            }
+        }
+
+        int test_correct =
+            co_await asio::co_spawn(req.thread_pool_executor(), [&]() -> asio::awaitable<int> {
+            co_return network.evaluate_onehot(test_inputs, test_labels);
         }, asio::use_awaitable);
 
-        co_await stream.write(std::format("{}\n", epoch + 1));
+        double avg_loss = (epoch_losses && !epoch_losses->empty())
+                              ? sum_loss / static_cast<double>(epoch_losses->size())
+                              : 0.0;
+
+        // Stream epoch summary event
+        auto epoch_msg =
+            json{
+                { "type", "epoch" },
+                { "epoch", epoch + 1 },
+                { "test_correct", test_correct },
+                { "avg_loss", avg_loss },
+            }
+                .dump();
+        co_await stream.write(epoch_msg + "\n");
+
+        int absolute_epoch = network_info.training_epochs + epoch + 1;
+        co_await m_state->db.insert_training_session(
+            network_id, absolute_epoch, avg_loss, test_correct
+        );
     }
 
     auto update_res = co_await m_state->db.update_network_weights(
         network_id, network.dump_weights(), network.dump_biases(), train_req.epochs
     );
     if (!update_res) {
-        co_await stream.write("Failed to save trained network\n");
+        co_await stream.write("error: Failed to save trained network\n");
     }
 
     co_return ApiResponse::stream_end();
@@ -519,4 +574,24 @@ void to_json(json& j, const FieldError& v) {
         { "field", v.field },
         { "error", v.error },
     };
+}
+
+asio::awaitable<ApiResponse> App::get_training_sessions(const httc::Request& req) {
+    int network_id;
+    try {
+        network_id = std::stoi(req.path_params.at("id"));
+    } catch (...) {
+        co_return ApiResponse::bad_request("Invalid network ID");
+    }
+
+    auto sessions_res = co_await m_state->db.get_training_sessions(network_id);
+    if (!sessions_res) {
+        spdlog::error(
+            "Failed to retrieve training sessions for network {}: {} {}", network_id,
+            sessions_res.error().message, sessions_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve training sessions");
+    }
+
+    co_return ApiResponse::ok(sessions_res.value());
 }
