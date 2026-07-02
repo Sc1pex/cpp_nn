@@ -54,8 +54,17 @@ struct NetworkInfo {
     std::string loss;
 };
 
+struct TrainingSession {
+    int id;
+    int network_id;
+    int epoch;
+    double train_loss;
+    int test_correct;
+};
+
 void to_json(json& j, const NetworkFull& v);
 void to_json(json& j, const NetworkInfo& v);
+void to_json(json& j, const TrainingSession& v);
 
 class Db {
 public:
@@ -73,6 +82,10 @@ public:
         int id, const std::vector<double>& weights, const std::vector<double>& biases,
         int epochs_added
     );
+
+    asio::awaitable<DBResult<void>>
+        insert_training_session(int network_id, int epoch, double train_loss, int test_correct);
+    asio::awaitable<DBResult<std::vector<TrainingSession>>> get_training_sessions(int network_id);
 
 private:
     void create_statements();

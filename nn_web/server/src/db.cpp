@@ -2,7 +2,6 @@
 #include <spdlog/spdlog.h>
 #include <asio.hpp>
 #include <expected>
-#include <functional>
 #include "nlohmann/json.hpp"
 
 Db::Db(std::string_view db_file_path) : m_pool(1) {
@@ -64,7 +63,6 @@ void Db::create_tables() {
         network_id INTEGER NOT NULL,
         epoch INTEGER NOT NULL,
         train_loss REAL NOT NULL,
-        train_correct INTEGER NOT NULL,
         test_correct INTEGER NOT NULL,
         FOREIGN KEY(network_id) REFERENCES networks(id)
     );)";
@@ -349,6 +347,16 @@ void Db::create_statements() {
     const char* update_network_weights_sql = R"(
     UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ? WHERE id = ?;)";
     add_stmt(update_network_weights_sql, "update_network_weights");
+
+    const char* insert_training_session_sql = R"(
+    INSERT INTO training_sessions (network_id, epoch, train_loss, test_correct)
+    VALUES (?, ?, ?, ?);)";
+    add_stmt(insert_training_session_sql, "insert_training_session");
+
+    const char* get_training_sessions_sql = R"(
+    SELECT id, network_id, epoch, train_loss, test_correct
+    FROM training_sessions WHERE network_id = ? ORDER BY epoch ASC;)";
+    add_stmt(get_training_sessions_sql, "get_training_sessions");
 }
 
 void to_json(json& j, const NetworkFull& v) {
@@ -379,4 +387,70 @@ void to_json(json& j, const NetworkInfo& v) {
         { "activations", v.activations },
         { "loss", v.loss },
     };
+}
+
+void to_json(json& j, const TrainingSession& v) {
+    j = json{
+        { "id", v.id },
+        { "network_id", v.network_id },
+        { "epoch", v.epoch },
+        { "train_loss", v.train_loss },
+        { "test_correct", v.test_correct },
+    };
+}
+
+asio::awaitable<DBResult<void>>
+    Db::insert_training_session(int network_id, int epoch, double train_loss, int test_correct) {
+    co_return co_await run_on_pool(
+        [this, network_id, epoch, train_loss, test_correct]() -> std::expected<void, DBError> {
+        sqlite3_stmt* stmt = m_stmts["insert_training_session"];
+
+        sqlite3_bind_int(stmt, 1, network_id);
+        sqlite3_bind_int(stmt, 2, epoch);
+        sqlite3_bind_double(stmt, 3, train_loss);
+        sqlite3_bind_int(stmt, 4, test_correct);
+
+        int rc = sqlite3_step(stmt);
+        sqlite3_reset(stmt);
+
+        if (rc != SQLITE_DONE) {
+            rc = sqlite3_extended_errcode(m_db);
+            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        }
+        return {};
+    }, m_pool
+    );
+}
+
+asio::awaitable<DBResult<std::vector<TrainingSession>>> Db::get_training_sessions(int network_id) {
+    co_return co_await run_on_pool(
+        [this, network_id]() -> std::expected<std::vector<TrainingSession>, DBError> {
+        sqlite3_stmt* stmt = m_stmts["get_training_sessions"];
+        sqlite3_bind_int(stmt, 1, network_id);
+
+        std::vector<TrainingSession> sessions;
+        int rc;
+        while (true) {
+            rc = sqlite3_step(stmt);
+            if (rc != SQLITE_ROW)
+                break;
+
+            TrainingSession s;
+            s.id = sqlite3_column_int(stmt, 0);
+            s.network_id = sqlite3_column_int(stmt, 1);
+            s.epoch = sqlite3_column_int(stmt, 2);
+            s.train_loss = sqlite3_column_double(stmt, 3);
+            s.test_correct = sqlite3_column_int(stmt, 4);
+            sessions.push_back(s);
+        }
+
+        if (rc != SQLITE_DONE) {
+            rc = sqlite3_extended_errcode(m_db);
+            sqlite3_reset(stmt);
+            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        }
+        sqlite3_reset(stmt);
+        return sessions;
+    }, m_pool
+    );
 }
