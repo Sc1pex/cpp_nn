@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 MemMatrix::MemMatrix(const std::string& path, int rows, int cols) : m_rows(rows), m_cols(cols) {
     m_fd = open(path.c_str(), O_RDONLY);

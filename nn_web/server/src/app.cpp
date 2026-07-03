@@ -108,6 +108,7 @@ App::App(std::optional<std::string_view> static_assets_path)
     m_router->route(
         "/api/networks/:id/training-sessions", MAKE_API_ROUTE(get, get_training_sessions)
     );
+    m_router->route("/api/networks/:id/loss-points", MAKE_API_ROUTE(get, get_loss_points));
 
     m_router->route("/api/data/:source/:idx", MAKE_API_ROUTE(get, get_data));
 }
@@ -493,6 +494,16 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
                     }
                         .dump();
                 co_await stream.write(msg + "\n");
+
+                auto res =
+                    co_await m_state->db.insert_loss_point(network_id, global_step, loss_val);
+                if (!res) {
+                    spdlog::error(
+                        "Failed to insert loss point: {} {}", res.error().message, res.error().code
+                    );
+                    co_await stream.write("error: Failed to persist training data\n");
+                    co_return ApiResponse::stream_end();
+                }
             }
         }
 
@@ -501,25 +512,27 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
             co_return network.evaluate_onehot(test_inputs, test_labels);
         }, asio::use_awaitable);
 
-        double avg_loss = (epoch_losses && !epoch_losses->empty())
-                              ? sum_loss / static_cast<double>(epoch_losses->size())
-                              : 0.0;
-
         // Stream epoch summary event
         auto epoch_msg =
             json{
                 { "type", "epoch" },
                 { "epoch", epoch + 1 },
                 { "test_correct", test_correct },
-                { "avg_loss", avg_loss },
             }
                 .dump();
         co_await stream.write(epoch_msg + "\n");
 
         int absolute_epoch = network_info.training_epochs + epoch + 1;
-        co_await m_state->db.insert_training_session(
-            network_id, absolute_epoch, avg_loss, test_correct
-        );
+
+        auto res =
+            co_await m_state->db.insert_training_session(network_id, absolute_epoch, test_correct);
+        if (!res) {
+            spdlog::error(
+                "Failed to insert training session: {} {}", res.error().message, res.error().code
+            );
+            co_await stream.write("error: Failed to persist training session\n");
+            co_return ApiResponse::stream_end();
+        }
     }
 
     auto update_res = co_await m_state->db.update_network_weights(
@@ -594,4 +607,24 @@ asio::awaitable<ApiResponse> App::get_training_sessions(const httc::Request& req
     }
 
     co_return ApiResponse::ok(sessions_res.value());
+}
+
+asio::awaitable<ApiResponse> App::get_loss_points(const httc::Request& req) {
+    int network_id;
+    try {
+        network_id = std::stoi(req.path_params.at("id"));
+    } catch (...) {
+        co_return ApiResponse::bad_request("Invalid network ID");
+    }
+
+    auto points_res = co_await m_state->db.get_loss_points(network_id);
+    if (!points_res) {
+        spdlog::error(
+            "Failed to retrieve loss points for network {}: {} {}", network_id,
+            points_res.error().message, points_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve loss points");
+    }
+
+    co_return ApiResponse::ok(points_res.value());
 }
