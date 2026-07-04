@@ -105,9 +105,7 @@ App::App(std::optional<std::string_view> static_assets_path)
     m_router->route("/api/networks/:id/predict/:source/:idx", MAKE_API_ROUTE(post, predict));
     m_router->route("/api/networks/:id/predict", MAKE_API_ROUTE(post, predict_custom));
     m_router->route("/api/networks/:id/train", MAKE_API_ROUTE(post, train_network));
-    m_router->route(
-        "/api/networks/:id/training-sessions", MAKE_API_ROUTE(get, get_training_sessions)
-    );
+    m_router->route("/api/networks/:id/test-points", MAKE_API_ROUTE(get, get_test_points));
     m_router->route("/api/networks/:id/loss-points", MAKE_API_ROUTE(get, get_loss_points));
 
     m_router->route("/api/data/:source/:idx", MAKE_API_ROUTE(get, get_data));
@@ -589,7 +587,7 @@ void to_json(json& j, const FieldError& v) {
     };
 }
 
-asio::awaitable<ApiResponse> App::get_training_sessions(const httc::Request& req) {
+asio::awaitable<ApiResponse> App::get_test_points(const httc::Request& req) {
     int network_id;
     try {
         network_id = std::stoi(req.path_params.at("id"));
@@ -597,7 +595,7 @@ asio::awaitable<ApiResponse> App::get_training_sessions(const httc::Request& req
         co_return ApiResponse::bad_request("Invalid network ID");
     }
 
-    auto sessions_res = co_await m_state->db.get_training_sessions(network_id);
+    auto sessions_res = co_await m_state->db.get_test_points(network_id);
     if (!sessions_res) {
         spdlog::error(
             "Failed to retrieve training sessions for network {}: {} {}", network_id,

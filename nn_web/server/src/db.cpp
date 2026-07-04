@@ -363,7 +363,7 @@ void Db::create_statements() {
     add_stmt(insert_training_session_sql, "insert_training_session");
 
     const char* get_training_sessions_sql = R"(
-    SELECT id, network_id, epoch, test_correct
+    SELECT test_correct
     FROM training_sessions WHERE network_id = ? ORDER BY epoch ASC;)";
     add_stmt(get_training_sessions_sql, "get_training_sessions");
 
@@ -373,7 +373,7 @@ void Db::create_statements() {
     add_stmt(insert_loss_point_sql, "insert_loss_point");
 
     const char* get_loss_points_sql = R"(
-    SELECT id, network_id, step, loss
+    SELECT loss
     FROM training_loss_points WHERE network_id = ? ORDER BY step ASC;)";
     add_stmt(get_loss_points_sql, "get_loss_points");
 }
@@ -408,24 +408,6 @@ void to_json(json& j, const NetworkInfo& v) {
     };
 }
 
-void to_json(json& j, const TrainingSession& v) {
-    j = json{
-        { "id", v.id },
-        { "network_id", v.network_id },
-        { "epoch", v.epoch },
-        { "test_correct", v.test_correct },
-    };
-}
-
-void to_json(json& j, const TrainingLossPoint& v) {
-    j = json{
-        { "id", v.id },
-        { "network_id", v.network_id },
-        { "step", v.step },
-        { "loss", v.loss },
-    };
-}
-
 asio::awaitable<DBResult<void>>
     Db::insert_training_session(int network_id, int epoch, int test_correct) {
     co_return co_await run_on_pool(
@@ -448,25 +430,21 @@ asio::awaitable<DBResult<void>>
     );
 }
 
-asio::awaitable<DBResult<std::vector<TrainingSession>>> Db::get_training_sessions(int network_id) {
+asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) {
     co_return co_await run_on_pool(
-        [this, network_id]() -> std::expected<std::vector<TrainingSession>, DBError> {
+        [this, network_id]() -> std::expected<std::vector<int>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_training_sessions"];
         sqlite3_bind_int(stmt, 1, network_id);
 
-        std::vector<TrainingSession> sessions;
+        std::vector<int> sessions;
         int rc;
         while (true) {
             rc = sqlite3_step(stmt);
-            if (rc != SQLITE_ROW)
+            if (rc != SQLITE_ROW) {
                 break;
+            }
 
-            TrainingSession s;
-            s.id = sqlite3_column_int(stmt, 0);
-            s.network_id = sqlite3_column_int(stmt, 1);
-            s.epoch = sqlite3_column_int(stmt, 2);
-            s.test_correct = sqlite3_column_int(stmt, 3);
-            sessions.push_back(s);
+            sessions.push_back(sqlite3_column_int(stmt, 0));
         }
 
         if (rc != SQLITE_DONE) {
@@ -501,25 +479,21 @@ asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, 
     );
 }
 
-asio::awaitable<DBResult<std::vector<TrainingLossPoint>>> Db::get_loss_points(int network_id) {
+asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_id) {
     co_return co_await run_on_pool(
-        [this, network_id]() -> std::expected<std::vector<TrainingLossPoint>, DBError> {
+        [this, network_id]() -> std::expected<std::vector<double>, DBError> {
         sqlite3_stmt* stmt = m_stmts["get_loss_points"];
         sqlite3_bind_int(stmt, 1, network_id);
 
-        std::vector<TrainingLossPoint> points;
+        std::vector<double> points;
         int rc;
         while (true) {
             rc = sqlite3_step(stmt);
-            if (rc != SQLITE_ROW)
+            if (rc != SQLITE_ROW) {
                 break;
+            }
 
-            TrainingLossPoint p;
-            p.id = sqlite3_column_int(stmt, 0);
-            p.network_id = sqlite3_column_int(stmt, 1);
-            p.step = sqlite3_column_int(stmt, 2);
-            p.loss = sqlite3_column_double(stmt, 3);
-            points.push_back(p);
+            points.push_back(sqlite3_column_double(stmt, 0));
         }
 
         if (rc != SQLITE_DONE) {
