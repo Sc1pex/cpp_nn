@@ -75,6 +75,8 @@ private:
     asio::awaitable<ApiResponse> train_network(const httc::Request& req, httc::Response& res);
 
     asio::awaitable<ApiResponse> get_data(const httc::Request& req);
+    asio::awaitable<ApiResponse> get_test_points(const httc::Request& req);
+    asio::awaitable<ApiResponse> get_loss_points(const httc::Request& req);
 
 private:
     std::optional<std::string_view> m_static_assets_path;

@@ -47,7 +47,7 @@ public:
         const Eigen::Ref<const Eigen::MatrixXd>& inputs,
         const Eigen::Ref<const Eigen::MatrixXd>& targets, const SGDHyperparams& hyperparams
     );
-    int evaluate_onehot(const MatrixXd& x, const std::vector<int>& labels) const;
+    int evaluate_onehot(const MatrixXd& x, const MatrixXd& labels) const;
 
     std::vector<double> dump_weights();
     std::vector<double> dump_biases();

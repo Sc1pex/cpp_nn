@@ -6,12 +6,16 @@
   import Architecture from "$lib/components/networkCard/Architecture.svelte";
   import NetworkTester from "$lib/components/NetworkTester.svelte";
   import NetworkTrainer from "$lib/components/NetworkTrainer.svelte";
+  import TrainingChart from "$lib/components/TrainingChart.svelte";
+  import { TrainingHistoryStore } from "$lib/data/trainingHistory.svelte";
 
   const networkId = parseInt(route.getParams("/:id").id);
 
   const network = $derived(
     networkStore.networks.find((n) => n.id === networkId),
   );
+
+  const history = new TrainingHistoryStore(networkId);
 </script>
 
 <main class="flex flex-col gap-6 max-w-5xl mx-auto mt-8 px-4 mb-16">
@@ -53,7 +57,8 @@
       <Architecture {network} variant="detailed" />
     </div>
 
-    <NetworkTrainer networkId={network.id} />
+    <NetworkTrainer networkId={network.id} {history} />
+    <TrainingChart {history} />
     <NetworkTester networkId={network.id} />
   {/if}
 </main>

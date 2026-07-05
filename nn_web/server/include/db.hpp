@@ -35,6 +35,7 @@ struct NetworkFull {
     std::vector<int> layer_sizes;
     int correct_predictions;
     int training_epochs;
+    int loss_points;
     double cost;
     std::vector<double> weights;
     std::vector<double> biases;
@@ -71,8 +72,15 @@ public:
 
     asio::awaitable<DBResult<void>> update_network_weights(
         int id, const std::vector<double>& weights, const std::vector<double>& biases,
-        int epochs_added
+        int epochs_added, int loss_points_added
     );
+
+    asio::awaitable<DBResult<void>>
+        insert_training_session(int network_id, int epoch, int test_correct);
+    asio::awaitable<DBResult<std::vector<int>>> get_test_points(int network_id);
+
+    asio::awaitable<DBResult<void>> insert_loss_point(int network_id, int step, double loss);
+    asio::awaitable<DBResult<std::vector<double>>> get_loss_points(int network_id);
 
 private:
     void create_statements();

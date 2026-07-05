@@ -1,8 +1,12 @@
 <script lang="ts">
   import Button from "./Button.svelte";
   import Card from "./Card.svelte";
+  import type { TrainingHistoryStore } from "$lib/data/trainingHistory.svelte";
 
-  let { networkId }: { networkId: number } = $props();
+  let {
+    networkId,
+    history,
+  }: { networkId: number; history: TrainingHistoryStore } = $props();
 
   let epochs = $state(1);
   let batchSize = $state(32);
@@ -16,21 +20,17 @@
     training = true;
     result = null;
     currentEpoch = 0;
+
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/networks/${networkId}/train`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            epochs,
-            batch_size: batchSize,
-            learning_rate: learningRate,
-          }),
-        },
-      );
+      const res = await fetch(`/api/networks/${networkId}/train`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          epochs,
+          batch_size: batchSize,
+          learning_rate: learningRate,
+        }),
+      });
 
       if (!res.ok) {
         const data = await res.json();
@@ -57,9 +57,16 @@
             throw new Error(trimmed.replace("error:", "").trim());
           }
 
-          const epochNum = parseInt(trimmed, 10);
-          if (!isNaN(epochNum)) {
-            currentEpoch = epochNum;
+          try {
+            const event = JSON.parse(trimmed);
+            if (event.type === "loss") {
+              history.appendLoss(event.loss);
+            } else if (event.type === "epoch") {
+              currentEpoch = event.epoch;
+              history.appendEpoch(event.test_correct);
+            }
+          } catch {
+            // ignore non-JSON lines
           }
         }
       }

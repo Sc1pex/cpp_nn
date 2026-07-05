@@ -298,14 +298,15 @@ std::optional<std::vector<double>> Network::train_sgd(
     return avg_losses;
 }
 
-int Network::evaluate_onehot(const MatrixXd& x, const std::vector<int>& labels) const {
+int Network::evaluate_onehot(const MatrixXd& x, const MatrixXd& labels) const {
     int correct = 0;
     auto output = feed_forward(x);
 
-    for (int i = 0; i < labels.size(); i++) {
-        int predicted_label;
-        output.col(i).maxCoeff(&predicted_label);
-        if (predicted_label == labels[i]) {
+    for (int i = 0; i < output.cols(); i++) {
+        int predicted, actual;
+        output.col(i).maxCoeff(&predicted);
+        labels.col(i).maxCoeff(&actual);
+        if (predicted == actual) {
             correct++;
         }
     }

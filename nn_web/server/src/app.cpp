@@ -105,6 +105,8 @@ App::App(std::optional<std::string_view> static_assets_path)
     m_router->route("/api/networks/:id/predict/:source/:idx", MAKE_API_ROUTE(post, predict));
     m_router->route("/api/networks/:id/predict", MAKE_API_ROUTE(post, predict_custom));
     m_router->route("/api/networks/:id/train", MAKE_API_ROUTE(post, train_network));
+    m_router->route("/api/networks/:id/test-points", MAKE_API_ROUTE(get, get_test_points));
+    m_router->route("/api/networks/:id/loss-points", MAKE_API_ROUTE(get, get_loss_points));
 
     m_router->route("/api/data/:source/:idx", MAKE_API_ROUTE(get, get_data));
 }
@@ -454,24 +456,92 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
 
     auto inputs = m_state->train_inputs.mat();
     auto labels = m_state->train_labels.mat();
+    auto test_inputs = m_state->test_inputs.mat();
+    auto test_labels = m_state->test_labels.mat();
 
     auto stream = co_await ApiResponse::stream(res);
 
-    nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size };
+    // ~10 loss reports per epoch regardless of batch size
+    int num_batches =
+        (static_cast<int>(inputs.cols()) + train_req.batch_size - 1) / train_req.batch_size;
+    int log_interval = std::max(1, num_batches / 10);
+
+    nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size,
+                                    log_interval };
+
+    int step = 0;
     for (int epoch = 0; epoch < train_req.epochs; epoch++) {
-        co_await asio::co_spawn(req.thread_pool_executor(), [&]() -> asio::awaitable<void> {
-            network.train_sgd(inputs, labels, hyperparams);
-            co_return;
+        auto epoch_losses = co_await asio::co_spawn(
+            req.thread_pool_executor(),
+            [&]() -> asio::awaitable<std::optional<std::vector<double>>> {
+            co_return network.train_sgd(inputs, labels, hyperparams);
+        }, asio::use_awaitable
+        );
+
+        double sum_loss = 0.0;
+        if (epoch_losses) {
+            for (double loss_val : *epoch_losses) {
+                sum_loss += loss_val;
+
+                auto global_step = step + network_info.loss_points;
+
+                auto res =
+                    co_await m_state->db.insert_loss_point(network_id, global_step, loss_val);
+                if (!res) {
+                    spdlog::error(
+                        "Failed to insert loss point: {} {}", res.error().message, res.error().code
+                    );
+                    co_await stream.write("error: Failed to persist training data\n");
+                    co_return ApiResponse::stream_end();
+                }
+
+                // Stream one loss event per log-interval window
+                auto msg =
+                    json{
+                        { "type", "loss" },
+                        { "step", global_step },
+                        { "epoch", epoch + 1 },
+                        { "loss", loss_val },
+                    }
+                        .dump();
+                co_await stream.write(msg + "\n");
+
+                step++;
+            }
+        }
+
+        int test_correct =
+            co_await asio::co_spawn(req.thread_pool_executor(), [&]() -> asio::awaitable<int> {
+            co_return network.evaluate_onehot(test_inputs, test_labels);
         }, asio::use_awaitable);
 
-        co_await stream.write(std::format("{}\n", epoch + 1));
+        int absolute_epoch = network_info.training_epochs + epoch + 1;
+        auto res =
+            co_await m_state->db.insert_training_session(network_id, absolute_epoch, test_correct);
+        if (!res) {
+            spdlog::error(
+                "Failed to insert training session: {} {}", res.error().message, res.error().code
+            );
+            co_await stream.write("error: Failed to persist training session\n");
+            co_return ApiResponse::stream_end();
+        }
+
+        // Stream epoch summary event
+        auto epoch_msg =
+            json{
+                { "type", "epoch" },
+                { "epoch", epoch + 1 },
+                { "test_correct", test_correct },
+            }
+                .dump();
+        co_await stream.write(epoch_msg + "\n");
     }
 
     auto update_res = co_await m_state->db.update_network_weights(
-        network_id, network.dump_weights(), network.dump_biases(), train_req.epochs
+        network_id, network.dump_weights(), network.dump_biases(), train_req.epochs, step
     );
     if (!update_res) {
-        co_await stream.write("Failed to save trained network\n");
+        co_await stream.write("error: Failed to save trained network\n");
     }
 
     co_return ApiResponse::stream_end();
@@ -519,4 +589,44 @@ void to_json(json& j, const FieldError& v) {
         { "field", v.field },
         { "error", v.error },
     };
+}
+
+asio::awaitable<ApiResponse> App::get_test_points(const httc::Request& req) {
+    int network_id;
+    try {
+        network_id = std::stoi(req.path_params.at("id"));
+    } catch (...) {
+        co_return ApiResponse::bad_request("Invalid network ID");
+    }
+
+    auto sessions_res = co_await m_state->db.get_test_points(network_id);
+    if (!sessions_res) {
+        spdlog::error(
+            "Failed to retrieve training sessions for network {}: {} {}", network_id,
+            sessions_res.error().message, sessions_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve training sessions");
+    }
+
+    co_return ApiResponse::ok(sessions_res.value());
+}
+
+asio::awaitable<ApiResponse> App::get_loss_points(const httc::Request& req) {
+    int network_id;
+    try {
+        network_id = std::stoi(req.path_params.at("id"));
+    } catch (...) {
+        co_return ApiResponse::bad_request("Invalid network ID");
+    }
+
+    auto points_res = co_await m_state->db.get_loss_points(network_id);
+    if (!points_res) {
+        spdlog::error(
+            "Failed to retrieve loss points for network {}: {} {}", network_id,
+            points_res.error().message, points_res.error().code
+        );
+        co_return ApiResponse::internal_error("Failed to retrieve loss points");
+    }
+
+    co_return ApiResponse::ok(points_res.value());
 }
