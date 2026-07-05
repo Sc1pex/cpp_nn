@@ -35,7 +35,7 @@ export class TrainingHistoryStore {
       this.lossPoints = lossPoints.map((value, i) => ({ idx: i + 1, value }));
       this.epochSummaries = sessions.map((value, i) => ({ idx: i + 1, value }));
 
-      console.log(this.lossPoints, this.epochSummaries);
+
     } catch (e) {
       console.error("Error fetching training history:", e);
     } finally {
