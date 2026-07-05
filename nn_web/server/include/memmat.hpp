@@ -5,14 +5,17 @@
 
 struct MemMatrix {
     MemMatrix(const std::string& path, int rows, int cols);
-    ~MemMatrix();
 
     Eigen::Map<const Eigen::MatrixXd> mat() const;
 
 private:
-    int m_fd;
+    struct MunmapDeleter {
+        size_t size;
+        void operator()(const double* p) const;
+    };
+
     size_t m_size;
-    const double* m_data;
+    std::unique_ptr<const double, MunmapDeleter> m_data;
     int m_rows;
     int m_cols;
 };
