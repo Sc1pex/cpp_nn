@@ -89,8 +89,9 @@ asio::awaitable<std::invoke_result_t<F>> run_on_pool(F&& operation, asio::thread
     }, asio::use_awaitable);
 }
 
-asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
-    co_return co_await run_on_pool([this, network]() -> std::expected<void, DBError> {
+asio::awaitable<DBResult<void>> Db::add_network(AddNetwork network) {
+    co_return co_await run_on_pool(
+        [this, network = std::move(network)]() -> std::expected<void, DBError> {
         auto stmt = m_stmts.at("add_network").get();
 
         sqlite3_bind_text(stmt, 1, network.name.c_str(), -1, SQLITE_STATIC);
@@ -124,10 +125,11 @@ asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
 
         sqlite3_reset(stmt);
         return {};
-    }, m_pool);
+    }, m_pool
+    );
 }
 
-asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(const int id) {
+asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(int id) {
     co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkInfo>, DBError> {
         auto stmt = m_stmts.at("get_network_by_id").get();
@@ -170,7 +172,7 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
     );
 }
 
-asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id(const int id) {
+asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id(int id) {
     co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkFull>, DBError> {
         auto stmt = m_stmts.at("get_full_network_by_id").get();
@@ -273,7 +275,7 @@ asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
     }, m_pool);
 }
 
-asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
+asio::awaitable<DBResult<bool>> Db::delete_network_by_id(int id) {
     co_return co_await run_on_pool([this, id]() -> std::expected<bool, DBError> {
         auto stmt = m_stmts.at("delete_network_by_id").get();
 
@@ -293,11 +295,11 @@ asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
 }
 
 asio::awaitable<DBResult<void>> Db::update_network_weights(
-    int id, const std::vector<double>& weights, const std::vector<double>& biases, int epochs_added,
+    int id, std::vector<double> weights, std::vector<double> biases, int epochs_added,
     int loss_points_added
 ) {
     co_return co_await run_on_pool(
-        [this, id, weights, biases, epochs_added,
+        [this, id, weights = std::move(weights), biases = std::move(biases), epochs_added,
          loss_points_added]() -> std::expected<void, DBError> {
         auto stmt = m_stmts.at("update_network_weights").get();
 

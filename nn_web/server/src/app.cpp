@@ -538,7 +538,8 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
     }
 
     auto update_res = co_await m_state->db.update_network_weights(
-        network_id, network.dump_weights(), network.dump_biases(), train_req.epochs, step
+        network_id, std::move(network.dump_weights()), std::move(network.dump_biases()),
+        train_req.epochs, step
     );
     if (!update_res) {
         co_await stream.write("error: Failed to save trained network\n");
