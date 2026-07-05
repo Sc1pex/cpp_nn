@@ -4,9 +4,13 @@
 #include <expected>
 #include "nlohmann/json.hpp"
 
-Db::Db(std::string_view db_file_path) : m_pool(1) {
+Db::Db(std::string_view db_file_path) : m_db(nullptr, sqlite3_close_v2), m_pool(1) {
     spdlog::info("Opening database at {}", db_file_path);
-    if (sqlite3_open(db_file_path.data(), &m_db) != SQLITE_OK) {
+    sqlite3* raw_db = nullptr;
+    int rc = sqlite3_open(db_file_path.data(), &raw_db);
+    m_db.reset(raw_db);
+
+    if (rc != SQLITE_OK) {
         throw std::runtime_error("Failed to open database");
     }
 
@@ -15,22 +19,9 @@ Db::Db(std::string_view db_file_path) : m_pool(1) {
     create_statements();
 }
 
-Db::~Db() {
-    m_pool.join();
-
-    for (auto& [name, stmt] : m_stmts) {
-        sqlite3_finalize(stmt);
-    }
-
-    if (m_db) {
-        spdlog::info("Closing database");
-        sqlite3_close(m_db);
-    }
-}
-
 void Db::enable_foreign_keys() {
     char* err_msg = nullptr;
-    if (sqlite3_exec(m_db, "PRAGMA foreign_keys = ON;", 0, 0, &err_msg) != SQLITE_OK) {
+    if (sqlite3_exec(m_db.get(), "PRAGMA foreign_keys = ON;", 0, 0, &err_msg) != SQLITE_OK) {
         std::string error = "Failed to enable foreign keys: ";
         error += err_msg;
         sqlite3_free(err_msg);
@@ -41,7 +32,7 @@ void Db::enable_foreign_keys() {
 void Db::create_tables() {
     auto create_table = [this](const char* sql) {
         char* err_msg = nullptr;
-        if (sqlite3_exec(this->m_db, sql, 0, 0, &err_msg) != SQLITE_OK) {
+        if (sqlite3_exec(this->m_db.get(), sql, 0, 0, &err_msg) != SQLITE_OK) {
             std::string error = "Failed to create table: ";
             error += err_msg;
             sqlite3_free(err_msg);
@@ -100,7 +91,7 @@ asio::awaitable<std::invoke_result_t<F>> run_on_pool(F&& operation, asio::thread
 
 asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
     co_return co_await run_on_pool([this, network]() -> std::expected<void, DBError> {
-        sqlite3_stmt* stmt = m_stmts["add_network"];
+        auto stmt = m_stmts.at("add_network").get();
 
         sqlite3_bind_text(stmt, 1, network.name.c_str(), -1, SQLITE_STATIC);
 
@@ -125,7 +116,7 @@ asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
 
         int rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
 
             sqlite3_reset(stmt);
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
@@ -139,13 +130,13 @@ asio::awaitable<DBResult<void>> Db::add_network(const AddNetwork&& network) {
 asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(const int id) {
     co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkInfo>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_network_by_id"];
+        auto stmt = m_stmts.at("get_network_by_id").get();
 
         sqlite3_bind_int(stmt, 1, id);
 
         int rc = sqlite3_step(stmt);
         if (rc != SQLITE_ROW) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
             sqlite3_reset(stmt);
             if (rc == SQLITE_DONE) {
                 return std::nullopt;
@@ -182,13 +173,13 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(cons
 asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id(const int id) {
     co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkFull>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_full_network_by_id"];
+        auto stmt = m_stmts.at("get_full_network_by_id").get();
 
         sqlite3_bind_int(stmt, 1, id);
 
         int rc = sqlite3_step(stmt);
         if (rc != SQLITE_ROW) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
             sqlite3_reset(stmt);
             if (rc == SQLITE_DONE) {
                 return std::nullopt;
@@ -236,7 +227,7 @@ asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id
 
 asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
     co_return co_await run_on_pool([this]() -> std::expected<std::vector<NetworkInfo>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_networks"];
+        auto stmt = m_stmts.at("get_networks").get();
 
         std::vector<NetworkInfo> networks;
 
@@ -272,7 +263,7 @@ asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
         }
 
         if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
             sqlite3_reset(stmt);
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
         }
@@ -284,7 +275,7 @@ asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
 
 asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
     co_return co_await run_on_pool([this, id]() -> std::expected<bool, DBError> {
-        sqlite3_stmt* stmt = m_stmts["delete_network_by_id"];
+        auto stmt = m_stmts.at("delete_network_by_id").get();
 
         sqlite3_bind_int(stmt, 1, id);
 
@@ -294,7 +285,7 @@ asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
         }
 
-        int rows_affected = sqlite3_changes(m_db);
+        int rows_affected = sqlite3_changes(m_db.get());
         sqlite3_reset(stmt);
 
         return rows_affected > 0;
@@ -308,7 +299,7 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
     co_return co_await run_on_pool(
         [this, id, weights, biases, epochs_added,
          loss_points_added]() -> std::expected<void, DBError> {
-        sqlite3_stmt* stmt = m_stmts["update_network_weights"];
+        auto stmt = m_stmts.at("update_network_weights").get();
 
         sqlite3_bind_blob(
             stmt, 1, weights.data(), static_cast<int>(weights.size() * sizeof(double)),
@@ -335,16 +326,15 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
 
 void Db::create_statements() {
     auto add_stmt = [this](const char* sql, const char* name) {
-        sqlite3_stmt* stmt;
-        if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
-            // Get error message
-            const char* err_msg = sqlite3_errmsg(m_db);
+        sqlite3_stmt* raw_stmt = nullptr;
+        if (sqlite3_prepare_v2(m_db.get(), sql, -1, &raw_stmt, nullptr) != SQLITE_OK) {
+            const char* err_msg = sqlite3_errmsg(m_db.get());
             spdlog::error("Failed to prepare {} statement: {}", name, err_msg);
             throw std::runtime_error(
                 "Failed to prepare " + std::string(name) + " statement" + err_msg
             );
         }
-        m_stmts[name] = stmt;
+        m_stmts.emplace(name, StmtPtr{ raw_stmt, sqlite3_finalize });
     };
 
     const char* add_network_sql = R"(
@@ -430,7 +420,7 @@ asio::awaitable<DBResult<void>>
     Db::insert_training_session(int network_id, int epoch, int test_correct) {
     co_return co_await run_on_pool(
         [this, network_id, epoch, test_correct]() -> std::expected<void, DBError> {
-        sqlite3_stmt* stmt = m_stmts["insert_training_session"];
+        auto stmt = m_stmts.at("insert_training_session").get();
 
         sqlite3_bind_int(stmt, 1, network_id);
         sqlite3_bind_int(stmt, 2, epoch);
@@ -440,7 +430,7 @@ asio::awaitable<DBResult<void>>
         sqlite3_reset(stmt);
 
         if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
         }
         return {};
@@ -451,7 +441,7 @@ asio::awaitable<DBResult<void>>
 asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) {
     co_return co_await run_on_pool(
         [this, network_id]() -> std::expected<std::vector<int>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_training_sessions"];
+        auto stmt = m_stmts.at("get_training_sessions").get();
         sqlite3_bind_int(stmt, 1, network_id);
 
         std::vector<int> sessions;
@@ -466,7 +456,7 @@ asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) 
         }
 
         if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
             sqlite3_reset(stmt);
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
         }
@@ -479,7 +469,7 @@ asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) 
 asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, double loss) {
     co_return co_await run_on_pool(
         [this, network_id, step, loss]() -> std::expected<void, DBError> {
-        sqlite3_stmt* stmt = m_stmts["insert_loss_point"];
+        auto stmt = m_stmts.at("insert_loss_point").get();
 
         sqlite3_bind_int(stmt, 1, network_id);
         sqlite3_bind_int(stmt, 2, step);
@@ -489,7 +479,7 @@ asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, 
         sqlite3_reset(stmt);
 
         if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
         }
         return {};
@@ -500,7 +490,7 @@ asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, 
 asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_id) {
     co_return co_await run_on_pool(
         [this, network_id]() -> std::expected<std::vector<double>, DBError> {
-        sqlite3_stmt* stmt = m_stmts["get_loss_points"];
+        auto stmt = m_stmts.at("get_loss_points").get();
         sqlite3_bind_int(stmt, 1, network_id);
 
         std::vector<double> points;
@@ -515,7 +505,7 @@ asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_i
         }
 
         if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db);
+            rc = sqlite3_extended_errcode(m_db.get());
             sqlite3_reset(stmt);
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
         }

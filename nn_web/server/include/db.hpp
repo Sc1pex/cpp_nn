@@ -2,6 +2,7 @@
 
 #include <sqlite3.h>
 #include <expected>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -62,8 +63,6 @@ class Db {
 public:
     Db(std::string_view db_file_path);
 
-    ~Db();
-
     asio::awaitable<DBResult<void>> add_network(const AddNetwork&& network);
     asio::awaitable<DBResult<std::optional<NetworkFull>>> get_full_network_by_id(const int id);
     asio::awaitable<DBResult<std::optional<NetworkInfo>>> get_network_by_id(const int id);
@@ -87,8 +86,10 @@ private:
     void create_statements();
     void create_tables();
 
-    sqlite3* m_db;
+    // Destruction order matters (first the pool, then the statements and last the db)
+    // so the fields must be in this order
+    using StmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
+    std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> m_db;
+    std::unordered_map<const char*, StmtPtr> m_stmts;
     asio::thread_pool m_pool;
-
-    std::unordered_map<const char*, sqlite3_stmt*> m_stmts;
 };
