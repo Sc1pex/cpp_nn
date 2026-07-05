@@ -59,21 +59,21 @@ void Db::create_tables() {
 
     const char* create_training_sessions_table_sql = R"(
     CREATE TABLE IF NOT EXISTS training_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
         network_id INTEGER NOT NULL,
         epoch INTEGER NOT NULL,
         test_correct INTEGER NOT NULL,
-        FOREIGN KEY(network_id) REFERENCES networks(id)
+        PRIMARY KEY(network_id, epoch),
+        FOREIGN KEY(network_id) REFERENCES networks(id) ON DELETE CASCADE
     );)";
     create_table(create_training_sessions_table_sql);
 
     const char* create_training_loss_points_table_sql = R"(
     CREATE TABLE IF NOT EXISTS training_loss_points (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
         network_id INTEGER NOT NULL,
         step INTEGER NOT NULL,
         loss REAL NOT NULL,
-        FOREIGN KEY(network_id) REFERENCES networks(id)
+        PRIMARY KEY(network_id, step),
+        FOREIGN KEY(network_id) REFERENCES networks(id) ON DELETE CASCADE
     );)";
     create_table(create_training_loss_points_table_sql);
 }
