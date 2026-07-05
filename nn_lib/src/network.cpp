@@ -190,11 +190,13 @@ MatrixXd Network::output_delta(const MatrixXd& z, const MatrixXd& a, const Matri
         using A = std::decay_t<decltype(act)>;
         using L = std::decay_t<decltype(loss)>;
 
-        if constexpr (std::is_same_v<A, activation::SoftMax>
-                      && std::is_same_v<L, loss::CrossEntropy>) {
+        if constexpr (
+            std::is_same_v<A, activation::SoftMax> && std::is_same_v<L, loss::CrossEntropy>
+        ) {
             return a - y;
-        } else if constexpr (std::is_same_v<A, activation::Sigmoid>
-                             && std::is_same_v<L, loss::CrossEntropy>) {
+        } else if constexpr (
+            std::is_same_v<A, activation::Sigmoid> && std::is_same_v<L, loss::CrossEntropy>
+        ) {
             return y.array() * (a.array() - 1.);
         } else if constexpr (std::is_same_v<A, activation::SoftMax>) {
             auto dc_da = loss.dc_da(a, y);
@@ -249,6 +251,12 @@ double Network::learn(const MatrixXd& input, const MatrixXd& y, double learning_
     return grads.loss;
 }
 
+std::mt19937 make_seeded_rng() {
+    std::random_device rd;
+    std::seed_seq seed{ rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
+    return std::mt19937(seed);
+}
+
 std::optional<std::vector<double>> Network::train_sgd(
     const Eigen::Ref<const Eigen::MatrixXd>& inputs,
     const Eigen::Ref<const Eigen::MatrixXd>& targets, const SGDHyperparams& hyperparams
@@ -260,7 +268,8 @@ std::optional<std::vector<double>> Network::train_sgd(
     int num_samples = inputs.cols();
     std::vector<int> indices(num_samples);
     std::iota(indices.begin(), indices.end(), 0);
-    std::mt19937 g;
+
+    static thread_local std::mt19937 g = make_seeded_rng();
 
     for (int epoch = 0; epoch < hyperparams.epochs; ++epoch) {
         std::shuffle(indices.begin(), indices.end(), g);
