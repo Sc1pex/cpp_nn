@@ -20,7 +20,6 @@
     training = true;
     result = null;
     currentEpoch = 0;
-    history.clear();
 
     try {
       const res = await fetch(`/api/networks/${networkId}/train`, {
@@ -61,13 +60,10 @@
           try {
             const event = JSON.parse(trimmed);
             if (event.type === "loss") {
-              history.appendLoss({ step: event.step, loss: event.loss });
+              history.appendLoss(event.loss);
             } else if (event.type === "epoch") {
               currentEpoch = event.epoch;
-              history.appendEpoch({
-                epoch: event.epoch,
-                test_correct: event.test_correct,
-              });
+              history.appendEpoch(event.test_correct);
             }
           } catch {
             // ignore non-JSON lines

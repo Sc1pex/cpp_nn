@@ -1,16 +1,11 @@
-export type LossPoint = {
-  step: number;
-  loss: number;
-};
-
-export type EpochSummary = {
-  epoch: number;
-  test_correct: number;
+type Datapoint = {
+  idx: number;
+  value: number;
 };
 
 export class TrainingHistoryStore {
-  lossPoints = $state<LossPoint[]>([]);
-  epochSummaries = $state<EpochSummary[]>([]);
+  lossPoints = $state<Datapoint[]>([]);
+  epochSummaries = $state<Datapoint[]>([]);
   loading = $state(false);
   networkId: number;
 
@@ -24,7 +19,7 @@ export class TrainingHistoryStore {
     try {
       const [lossRes, sessionRes] = await Promise.all([
         fetch(`/api/networks/${this.networkId}/loss-points`),
-        fetch(`/api/networks/${this.networkId}/training-sessions`),
+        fetch(`/api/networks/${this.networkId}/test-points`),
       ]);
 
       if (!lossRes.ok || !sessionRes.ok) {
@@ -33,12 +28,14 @@ export class TrainingHistoryStore {
       }
 
       const [lossPoints, sessions] = await Promise.all([
-        lossRes.json() as Promise<LossPoint[]>,
-        sessionRes.json() as Promise<EpochSummary[]>,
+        lossRes.json() as Promise<number[]>,
+        sessionRes.json() as Promise<number[]>,
       ]);
 
-      this.lossPoints = lossPoints;
-      this.epochSummaries = sessions;
+      this.lossPoints = lossPoints.map((value, i) => ({ idx: i + 1, value }));
+      this.epochSummaries = sessions.map((value, i) => ({ idx: i + 1, value }));
+
+      console.log(this.lossPoints, this.epochSummaries);
     } catch (e) {
       console.error("Error fetching training history:", e);
     } finally {
@@ -46,12 +43,18 @@ export class TrainingHistoryStore {
     }
   }
 
-  appendLoss(point: LossPoint) {
-    this.lossPoints = [...this.lossPoints, point];
+  appendLoss(loss: number) {
+    this.lossPoints = [
+      ...this.lossPoints,
+      { idx: this.lossPoints.length + 1, value: loss },
+    ];
   }
 
-  appendEpoch(summary: EpochSummary) {
-    this.epochSummaries = [...this.epochSummaries, summary];
+  appendEpoch(tests: number) {
+    this.epochSummaries = [
+      ...this.epochSummaries,
+      { idx: this.epochSummaries.length + 1, value: tests },
+    ];
   }
 
   clear() {
