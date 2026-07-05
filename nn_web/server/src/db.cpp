@@ -10,6 +10,7 @@ Db::Db(std::string_view db_file_path) : m_pool(1) {
         throw std::runtime_error("Failed to open database");
     }
 
+    enable_foreign_keys();
     create_tables();
     create_statements();
 }
@@ -24,6 +25,16 @@ Db::~Db() {
     if (m_db) {
         spdlog::info("Closing database");
         sqlite3_close(m_db);
+    }
+}
+
+void Db::enable_foreign_keys() {
+    char* err_msg = nullptr;
+    if (sqlite3_exec(m_db, "PRAGMA foreign_keys = ON;", 0, 0, &err_msg) != SQLITE_OK) {
+        std::string error = "Failed to enable foreign keys: ";
+        error += err_msg;
+        sqlite3_free(err_msg);
+        throw std::runtime_error(error);
     }
 }
 

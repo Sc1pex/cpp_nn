@@ -83,6 +83,7 @@ public:
     asio::awaitable<DBResult<std::vector<double>>> get_loss_points(int network_id);
 
 private:
+    void enable_foreign_keys();
     void create_statements();
     void create_tables();
 
