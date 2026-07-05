@@ -469,7 +469,7 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
     nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size,
                                     log_interval };
 
-    int global_step = 0;
+    int step = 0;
     for (int epoch = 0; epoch < train_req.epochs; epoch++) {
         auto epoch_losses = co_await asio::co_spawn(
             req.thread_pool_executor(),
@@ -478,20 +478,12 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
         }, asio::use_awaitable
         );
 
-        // Stream one loss event per log-interval window
         double sum_loss = 0.0;
         if (epoch_losses) {
             for (double loss_val : *epoch_losses) {
                 sum_loss += loss_val;
-                auto msg =
-                    json{
-                        { "type", "loss" },
-                        { "step", ++global_step },
-                        { "epoch", epoch + 1 },
-                        { "loss", loss_val },
-                    }
-                        .dump();
-                co_await stream.write(msg + "\n");
+
+                auto global_step = step + network_info.loss_points;
 
                 auto res =
                     co_await m_state->db.insert_loss_point(network_id, global_step, loss_val);
@@ -502,6 +494,19 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
                     co_await stream.write("error: Failed to persist training data\n");
                     co_return ApiResponse::stream_end();
                 }
+
+                // Stream one loss event per log-interval window
+                auto msg =
+                    json{
+                        { "type", "loss" },
+                        { "step", global_step },
+                        { "epoch", epoch + 1 },
+                        { "loss", loss_val },
+                    }
+                        .dump();
+                co_await stream.write(msg + "\n");
+
+                step++;
             }
         }
 
@@ -509,6 +514,17 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
             co_await asio::co_spawn(req.thread_pool_executor(), [&]() -> asio::awaitable<int> {
             co_return network.evaluate_onehot(test_inputs, test_labels);
         }, asio::use_awaitable);
+
+        int absolute_epoch = network_info.training_epochs + epoch + 1;
+        auto res =
+            co_await m_state->db.insert_training_session(network_id, absolute_epoch, test_correct);
+        if (!res) {
+            spdlog::error(
+                "Failed to insert training session: {} {}", res.error().message, res.error().code
+            );
+            co_await stream.write("error: Failed to persist training session\n");
+            co_return ApiResponse::stream_end();
+        }
 
         // Stream epoch summary event
         auto epoch_msg =
@@ -519,22 +535,10 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
             }
                 .dump();
         co_await stream.write(epoch_msg + "\n");
-
-        int absolute_epoch = network_info.training_epochs + epoch + 1;
-
-        auto res =
-            co_await m_state->db.insert_training_session(network_id, absolute_epoch, test_correct);
-        if (!res) {
-            spdlog::error(
-                "Failed to insert training session: {} {}", res.error().message, res.error().code
-            );
-            co_await stream.write("error: Failed to persist training session\n");
-            co_return ApiResponse::stream_end();
-        }
     }
 
     auto update_res = co_await m_state->db.update_network_weights(
-        network_id, network.dump_weights(), network.dump_biases(), train_req.epochs
+        network_id, network.dump_weights(), network.dump_biases(), train_req.epochs, step
     );
     if (!update_res) {
         co_await stream.write("error: Failed to save trained network\n");

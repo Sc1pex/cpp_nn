@@ -48,6 +48,7 @@ void Db::create_tables() {
         
         correct_predictions INTEGER NOT NULL DEFAULT 0,
         training_epochs INTEGER NOT NULL DEFAULT 0,
+        loss_points INTEGER NOT NULL DEFAULT 0,
         cost REAL NOT NULL DEFAULT 0.0,
         
         weights BLOB NOT NULL,      -- serialized vector<double>
@@ -214,6 +215,8 @@ asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id
 
         network.loss = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 10));
 
+        network.loss_points = sqlite3_column_int(stmt, 11);
+
         sqlite3_reset(stmt);
         return network;
     }, m_pool
@@ -288,10 +291,12 @@ asio::awaitable<DBResult<bool>> Db::delete_network_by_id(const int id) {
 }
 
 asio::awaitable<DBResult<void>> Db::update_network_weights(
-    int id, const std::vector<double>& weights, const std::vector<double>& biases, int epochs_added
+    int id, const std::vector<double>& weights, const std::vector<double>& biases, int epochs_added,
+    int loss_points_added
 ) {
     co_return co_await run_on_pool(
-        [this, id, weights, biases, epochs_added]() -> std::expected<void, DBError> {
+        [this, id, weights, biases, epochs_added,
+         loss_points_added]() -> std::expected<void, DBError> {
         sqlite3_stmt* stmt = m_stmts["update_network_weights"];
 
         sqlite3_bind_blob(
@@ -302,7 +307,8 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
             stmt, 2, biases.data(), static_cast<int>(biases.size() * sizeof(double)), SQLITE_STATIC
         );
         sqlite3_bind_int(stmt, 3, epochs_added);
-        sqlite3_bind_int(stmt, 4, id);
+        sqlite3_bind_int(stmt, 4, loss_points_added);
+        sqlite3_bind_int(stmt, 5, id);
 
         int rc = sqlite3_step(stmt);
         sqlite3_reset(stmt);
@@ -311,7 +317,8 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
             return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
         }
         return {};
-    }, m_pool
+    },
+        m_pool
     );
 }
 
@@ -341,7 +348,7 @@ void Db::create_statements() {
     add_stmt(get_network_by_id_sql, "get_network_by_id");
 
     const char* get_full_network_by_id_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations, loss
+    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations, loss, loss_points
     FROM networks WHERE id = ?;)";
     add_stmt(get_full_network_by_id_sql, "get_full_network_by_id");
 
@@ -354,7 +361,7 @@ void Db::create_statements() {
     add_stmt(delete_network_by_id_sql, "delete_network_by_id");
 
     const char* update_network_weights_sql = R"(
-    UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ? WHERE id = ?;)";
+    UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ?, loss_points = loss_points + ? WHERE id = ?;)";
     add_stmt(update_network_weights_sql, "update_network_weights");
 
     const char* insert_training_session_sql = R"(
