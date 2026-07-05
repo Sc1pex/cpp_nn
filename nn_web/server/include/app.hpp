@@ -10,11 +10,11 @@ struct FieldError {
     std::string field;
     std::string error;
 };
-void to_json(json& j, const FieldError& v);
+void to_json(nlohmann::json& j, const FieldError& v);
 
 struct ApiResponse {
     httc::StatusCode status;
-    std::optional<json> resp;
+    std::optional<nlohmann::json> resp;
 
     // Static helper to initialize streaming on a response
     static asio::awaitable<httc::Response::ChunkedStream> stream(
@@ -31,12 +31,12 @@ struct ApiResponse {
         return ApiResponse{ httc::StatusCode::OK, std::nullopt };
     }
 
-    static ApiResponse ok(json resp) {
+    static ApiResponse ok(nlohmann::json resp) {
         return ApiResponse{ httc::StatusCode::OK, resp };
     }
 
     static ApiResponse error(httc::StatusCode status, std::string_view message) {
-        return ApiResponse{ status, json{ { "error", message } } };
+        return ApiResponse{ status, nlohmann::json{ { "error", message } } };
     }
 
     static ApiResponse internal_error(std::string_view message) {

@@ -2,7 +2,8 @@
 #include <spdlog/spdlog.h>
 #include <asio.hpp>
 #include <expected>
-#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 Db::Db(std::string_view db_file_path) : m_db(nullptr, sqlite3_close_v2), m_pool(1) {
     spdlog::info("Opening database at {}", db_file_path);

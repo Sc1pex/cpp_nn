@@ -1,5 +1,7 @@
 #include "state.hpp"
 
+using json = nlohmann::json;
+
 void to_json(json& j, const Sample& v) {
     int expected_output;
     v.label.col(0).maxCoeff(&expected_output);

@@ -32,4 +32,4 @@ struct State {
     MemMatrix test_labels;
 };
 
-void to_json(json& j, const Sample& v);
+void to_json(nlohmann::json& j, const Sample& v);

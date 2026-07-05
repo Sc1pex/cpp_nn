@@ -11,8 +11,6 @@
 #include "asio/thread_pool.hpp"
 #include "nlohmann/json.hpp"
 
-using nlohmann::json;
-
 struct DBError {
     int code;
     std::string_view message;
@@ -56,8 +54,8 @@ struct NetworkInfo {
     std::string loss;
 };
 
-void to_json(json& j, const NetworkFull& v);
-void to_json(json& j, const NetworkInfo& v);
+void to_json(nlohmann::json& j, const NetworkFull& v);
+void to_json(nlohmann::json& j, const NetworkInfo& v);
 
 class Db {
 public:
