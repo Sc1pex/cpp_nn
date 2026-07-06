@@ -8,6 +8,7 @@ target_link_libraries(nn_server PUBLIC spdlog::spdlog)
 
 target_sources(nn_server
     PRIVATE
+        ./src/api_response.cpp
         ./src/app.cpp
         ./src/db.cpp
         ./src/main.cpp
@@ -19,6 +20,7 @@ target_sources(nn_server
         BASE_DIRS
             ${PROJECT_SOURCE_DIR}/nn_web/server/include
         FILES
+            ${PROJECT_SOURCE_DIR}/nn_web/server/include/api_response.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/app.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/db.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/memmat.hpp
