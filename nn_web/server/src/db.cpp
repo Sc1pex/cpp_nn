@@ -5,7 +5,7 @@
 
 using json = nlohmann::json;
 
-Db::Db(std::string_view db_file_path) : m_db(nullptr, sqlite3_close_v2), m_pool(1) {
+Db::Db(const std::string& db_file_path) : m_db(nullptr, sqlite3_close_v2), m_pool(1) {
     spdlog::info("Opening database at {}", db_file_path);
     sqlite3* raw_db = nullptr;
     int rc = sqlite3_open(db_file_path.data(), &raw_db);

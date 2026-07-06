@@ -59,7 +59,7 @@ void to_json(nlohmann::json& j, const NetworkInfo& v);
 
 class Db {
 public:
-    Db(std::string_view db_file_path);
+    Db(const std::string& db_file_path);
 
     asio::awaitable<DBResult<void>> add_network(AddNetwork network);
     asio::awaitable<DBResult<std::optional<NetworkFull>>> get_full_network_by_id(int id);
