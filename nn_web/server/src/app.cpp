@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 #include <nn_lib/activation.hpp>
 #include <nn_lib/network.hpp>
+#include "utils.hpp"
 
 using json = nlohmann::json;
 
@@ -124,35 +125,28 @@ void App::run() {
 asio::awaitable<ApiResponse> App::get_networks(const httc::Request& req) {
     auto networks_res = co_await m_state->db.get_networks();
     if (!networks_res) {
-        spdlog::error(
-            "Failed to retrieve networks: {} {}", networks_res.error().message,
-            networks_res.error().code
+        co_return map_db_error(
+            networks_res.error(), "Failed to retrieve networks", "Failed to retrieve networks"
         );
-        co_return ApiResponse::internal_error("Failed to retrieve networks");
     }
 
     co_return ApiResponse::ok(networks_res.value());
 }
 
 asio::awaitable<ApiResponse> App::get_network_by_id(const httc::Request& req) {
-    int network_id;
-    try {
-        auto id_str = req.path_params.at("id");
-        network_id = std::stoi(id_str);
-    } catch (const std::exception&) {
-        co_return ApiResponse::bad_request("Invalid network ID");
+    auto network_id = parse_int_param(req, "id", "Invalid network ID");
+    if (!network_id) {
+        co_return network_id.error();
     }
 
-    auto network_res = co_await m_state->db.get_network_by_id(network_id);
+    auto network_res = co_await m_state->db.get_network_by_id(*network_id);
     if (!network_res) {
-        spdlog::error(
-            "Failed to retrieve network with id {}: {} {}", network_id, network_res.error().message,
-            network_res.error().code
+        co_return map_db_error(
+            network_res.error(), "Failed to retrieve network",
+            "Failed to retrieve network with id {}", *network_id
         );
-        co_return ApiResponse::internal_error("Failed to retrieve network");
     }
     if (!network_res.value()) {
-        spdlog::info("Network with id {} not found", network_id);
         co_return ApiResponse::not_found("Network not found");
     }
 
@@ -160,21 +154,23 @@ asio::awaitable<ApiResponse> App::get_network_by_id(const httc::Request& req) {
 }
 
 asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
-    json j = json::parse(req.body);
-    AddNetworkRequest add_req = j.get<AddNetworkRequest>();
+    auto add_req = parse_json_body<AddNetworkRequest>(req);
+    if (!add_req) {
+        co_return add_req.error();
+    }
 
-    if (add_req.name.length() < 2) {
+    if (add_req->name.length() < 2) {
         co_return ApiResponse::field_error(
             { .field = "name", .error = "Name must be at least 2 characters long" }
         );
     }
-    if (add_req.name.length() > 32) {
+    if (add_req->name.length() > 32) {
         co_return ApiResponse::field_error(
             { .field = "name", .error = "Name must be less than 32 characters long" }
         );
     }
 
-    if (add_req.activations.size() + 1 != add_req.layer_sizes.size()) {
+    if (add_req->activations.size() + 1 != add_req->layer_sizes.size()) {
         co_return ApiResponse::field_error(
             { .field = "activations",
               .error = "Number of activations must be one less than number of layers" }
@@ -182,7 +178,7 @@ asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
     }
 
     auto hidden_activations_view =
-        add_req.activations | std::views::take(add_req.activations.size() - 1);
+        add_req->activations | std::views::take(add_req->activations.size() - 1);
     auto hidden_activations_opt = nn::strs_to_hidden_activation(hidden_activations_view);
     if (!hidden_activations_opt) {
         co_return ApiResponse::field_error(
@@ -190,7 +186,7 @@ asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
         );
     }
 
-    auto output_activation_req = add_req.activations.back();
+    auto output_activation_req = add_req->activations.back();
     auto output_activation_opt = nn::str_to_output_activation(output_activation_req);
     if (!output_activation_opt) {
         co_return ApiResponse::field_error(
@@ -198,21 +194,21 @@ asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
         );
     }
 
-    auto layer_error = validate_network_layers(add_req.layer_sizes);
+    auto layer_error = validate_network_layers(add_req->layer_sizes);
     if (layer_error) {
         co_return ApiResponse::field_error(*layer_error);
     }
 
     auto output_activation = output_activation_opt.value();
 
-    auto loss_opt = nn::str_to_loss(add_req.loss);
+    auto loss_opt = nn::str_to_loss(add_req->loss);
     if (!loss_opt) {
         co_return ApiResponse::field_error({ .field = "loss", .error = "Invalid loss function" });
     }
     auto loss = loss_opt.value();
 
     auto network_opt = nn::Network::new_random(
-        add_req.layer_sizes, hidden_activations_opt.value(), output_activation, loss
+        add_req->layer_sizes, hidden_activations_opt.value(), output_activation, loss
     );
     if (!network_opt.has_value()) {
         spdlog::error("Invlid network configuration");
@@ -221,25 +217,24 @@ asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
     auto network = network_opt.value();
 
     AddNetwork db_network;
-    db_network.name = add_req.name;
-    db_network.layer_sizes = add_req.layer_sizes;
-    db_network.activations = add_req.activations;
-    db_network.loss = add_req.loss;
+    db_network.name = add_req->name;
+    db_network.layer_sizes = add_req->layer_sizes;
+    db_network.activations = add_req->activations;
+    db_network.loss = add_req->loss;
     db_network.weights = network.dump_weights();
     db_network.biases = network.dump_biases();
 
     auto add_res = co_await m_state->db.add_network(std::move(db_network));
     if (!add_res) {
         if (add_res.error().code == SQLITE_CONSTRAINT_UNIQUE) {
-            spdlog::info("Network with name '{}' already exists", add_req.name);
+            spdlog::info("Network with name '{}' already exists", add_req->name);
             co_return ApiResponse::field_error(
                 { .field = "name", .error = "Network with this name already exists" }
             );
         } else {
-            spdlog::error(
-                "Failed to add network: {} {}", add_res.error().message, add_res.error().code
+            co_return map_db_error(
+                add_res.error(), "Failed to add network", "Failed to add network"
             );
-            co_return ApiResponse::internal_error("Failed to add network");
         }
     }
 
@@ -248,24 +243,20 @@ asio::awaitable<ApiResponse> App::create_network(const httc::Request& req) {
 }
 
 asio::awaitable<ApiResponse> App::remove_network(const httc::Request& req) {
-    int network_id;
-    try {
-        auto id_str = req.path_params.at("id");
-        network_id = std::stoi(id_str);
-    } catch (const std::exception&) {
-        co_return ApiResponse::bad_request("Invalid network ID");
+    auto network_id = parse_int_param(req, "id", "Invalid network ID");
+    if (!network_id) {
+        co_return network_id.error();
     }
 
-    auto delete_res = co_await m_state->db.delete_network_by_id(network_id);
+    auto delete_res = co_await m_state->db.delete_network_by_id(*network_id);
     if (!delete_res) {
-        spdlog::error(
-            "Failed to delete network with id {}: {} {}", network_id, delete_res.error().message,
-            delete_res.error().code
+        co_return map_db_error(
+            delete_res.error(), "Failed to delete network", "Failed to delete network with id {}",
+            *network_id
         );
-        co_return ApiResponse::internal_error("Failed to delete network");
     }
     if (!delete_res.value()) {
-        spdlog::info("Network with id {} not found", network_id);
+        spdlog::info("Network with id {} not found", *network_id);
         co_return ApiResponse::not_found("Network not found");
     }
 
@@ -273,68 +264,28 @@ asio::awaitable<ApiResponse> App::remove_network(const httc::Request& req) {
 }
 
 asio::awaitable<ApiResponse> App::predict(const httc::Request& req) {
-    int index;
-    try {
-        auto idx_str = req.path_params.at("idx");
-        index = std::stoi(idx_str);
-    } catch (const std::exception&) {
-        co_return ApiResponse::bad_request("Invalid index");
+    auto index = parse_int_param(req, "idx", "Invalid index");
+    if (!index) {
+        co_return index.error();
     }
 
-    int network_id;
-    try {
-        auto id_str = req.path_params.at("id");
-        network_id = std::stoi(id_str);
-    } catch (const std::exception&) {
-        co_return ApiResponse::bad_request("Invalid network ID");
+    auto network_id = parse_int_param(req, "id", "Invalid network ID");
+    if (!network_id) {
+        co_return network_id.error();
     }
 
-    std::optional<Sample> sample_res;
-    auto source = req.path_params.at("source");
-    if (source == "test") {
-        sample_res = m_state->get_test_sample(index);
-    } else if (source == "train") {
-        sample_res = m_state->get_train_sample(index);
-    } else {
-        co_return ApiResponse::bad_request("Invalid source");
+    auto sample = load_sample(*m_state, req.path_params.at("source"), *index);
+    if (!sample) {
+        co_return sample.error();
     }
 
-    if (!sample_res) {
-        spdlog::info("Sample from source {} with index {} not found", source, index);
-        co_return ApiResponse::not_found("Training sample not found");
-    }
-
-    auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
+    auto network_res = co_await load_network(m_state->db, *network_id);
     if (!network_res) {
-        spdlog::error(
-            "Failed to retrieve network with id {}: {} {}", network_id, network_res.error().message,
-            network_res.error().code
-        );
-        co_return ApiResponse::internal_error("Failed to retrieve network");
+        co_return network_res.error();
     }
-    if (!network_res.value()) {
-        spdlog::info("Network with id {} not found", network_id);
-        co_return ApiResponse::not_found("Network not found");
-    }
-    auto network_info = network_res.value().value();
+    auto network = network_res->second;
 
-    auto hidden_activations_view =
-        network_info.activations | std::views::take(network_info.activations.size() - 1);
-    auto output_activation_str = network_info.activations.back();
-
-    // Should never be invalid since it was validated on insertion
-    auto hidden_activations = nn::strs_to_hidden_activation(hidden_activations_view).value();
-    auto output_activation = nn::str_to_output_activation(output_activation_str).value();
-    auto loss = nn::str_to_loss(network_info.loss).value();
-
-    auto network_opt = nn::Network::from_data(
-        network_info.layer_sizes, network_info.weights, network_info.biases, hidden_activations,
-        output_activation, loss
-    );
-    auto network = network_opt.value();
-
-    auto sample = sample_res.value();
-    auto prediction = network.predict(sample.input, sample.label);
+    auto prediction = network.predict(sample->input, sample->label);
 
     co_return ApiResponse::ok(
         json{ { "output",
@@ -345,49 +296,35 @@ asio::awaitable<ApiResponse> App::predict(const httc::Request& req) {
     );
 }
 
+struct PredictRequest {
+    std::vector<double> input;
+};
+
+void from_json(const json& j, PredictRequest& req) {
+    j.at("input").get_to(req.input);
+}
+
 asio::awaitable<ApiResponse> App::predict_custom(const httc::Request& req) {
-    int network_id;
-    try {
-        auto id_str = req.path_params.at("id");
-        network_id = std::stoi(id_str);
-    } catch (const std::exception&) {
-        co_return ApiResponse::bad_request("Invalid network ID");
+    auto network_id = parse_int_param(req, "id", "Invalid network ID");
+    if (!network_id) {
+        co_return network_id.error();
     }
 
-    json j = json::parse(req.body);
-    std::vector<double> input = j.at("input").get<std::vector<double>>();
+    auto predict_req = parse_json_body<PredictRequest>(req);
+    if (!predict_req) {
+        co_return predict_req.error();
+    }
+
+    auto input = predict_req->input;
     if (input.size() != 784) {
         co_return ApiResponse::bad_request("Input size must be 784");
     }
 
-    auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
+    auto network_res = co_await load_network(m_state->db, *network_id);
     if (!network_res) {
-        spdlog::error(
-            "Failed to retrieve network with id {}: {} {}", network_id, network_res.error().message,
-            network_res.error().code
-        );
-        co_return ApiResponse::internal_error("Failed to retrieve network");
+        co_return network_res.error();
     }
-    if (!network_res.value()) {
-        spdlog::info("Network with id {} not found", network_id);
-        co_return ApiResponse::not_found("Network not found");
-    }
-    auto network_info = network_res.value().value();
-
-    auto hidden_activations_view =
-        network_info.activations | std::views::take(network_info.activations.size() - 1);
-    auto output_activation_str = network_info.activations.back();
-
-    // Should never be invalid since it was validated on insertion
-    auto hidden_activations = nn::strs_to_hidden_activation(hidden_activations_view).value();
-    auto output_activation = nn::str_to_output_activation(output_activation_str).value();
-    auto loss = nn::str_to_loss(network_info.loss).value();
-
-    auto network_opt = nn::Network::from_data(
-        network_info.layer_sizes, network_info.weights, network_info.biases, hidden_activations,
-        output_activation, loss
-    );
-    auto network = network_opt.value();
+    auto network = network_res->second;
 
     auto input_matrix = Eigen::Map<Eigen::Matrix<double, 784, 1>>(input.data());
     auto output = network.feed_forward(input_matrix);
@@ -413,46 +350,21 @@ void from_json(const json& j, TrainRequest& req) {
 }
 
 asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::Response& res) {
-    int network_id;
-    try {
-        network_id = std::stoi(req.path_params.at("id"));
-    } catch (...) {
-        co_return ApiResponse::bad_request("Invalid network ID");
+    auto network_id = parse_int_param(req, "id", "Invalid network ID");
+    if (!network_id) {
+        co_return network_id.error();
     }
 
-    TrainRequest train_req;
-    try {
-        if (!req.body.empty()) {
-            json j = json::parse(req.body);
-            train_req = j.get<TrainRequest>();
-        }
-    } catch (...) {
-        co_return ApiResponse::bad_request("Invalid JSON body");
+    auto train_req = parse_json_body<TrainRequest>(req);
+    if (!train_req) {
+        co_return train_req.error();
     }
 
-    auto network_res = co_await m_state->db.get_full_network_by_id(network_id);
+    auto network_res = co_await load_network(m_state->db, *network_id);
     if (!network_res) {
-        co_return ApiResponse::internal_error("Failed to retrieve network");
+        co_return network_res.error();
     }
-    if (!network_res.value()) {
-        co_return ApiResponse::not_found("Network not found");
-    }
-    auto network_info = network_res.value().value();
-
-    auto hidden_activations_view =
-        network_info.activations | std::views::take(network_info.activations.size() - 1);
-    auto hidden_activations = nn::strs_to_hidden_activation(hidden_activations_view).value();
-    auto output_activation = nn::str_to_output_activation(network_info.activations.back()).value();
-    auto loss = nn::str_to_loss(network_info.loss).value();
-
-    auto network_opt = nn::Network::from_data(
-        network_info.layer_sizes, network_info.weights, network_info.biases, hidden_activations,
-        output_activation, loss
-    );
-    if (!network_opt) {
-        co_return ApiResponse::internal_error("Failed to parse network from db");
-    }
-    auto network = network_opt.value();
+    auto [network_info, network] = network_res.value();
 
     auto inputs = m_state->train_inputs.mat();
     auto labels = m_state->train_labels.mat();
@@ -463,14 +375,14 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
 
     // ~10 loss reports per epoch regardless of batch size
     int num_batches =
-        (static_cast<int>(inputs.cols()) + train_req.batch_size - 1) / train_req.batch_size;
+        (static_cast<int>(inputs.cols()) + train_req->batch_size - 1) / train_req->batch_size;
     int log_interval = std::max(1, num_batches / 10);
 
-    nn::SGDHyperparams hyperparams{ train_req.learning_rate, 1, train_req.batch_size,
+    nn::SGDHyperparams hyperparams{ train_req->learning_rate, 1, train_req->batch_size,
                                     log_interval };
 
     int step = 0;
-    for (int epoch = 0; epoch < train_req.epochs; epoch++) {
+    for (int epoch = 0; epoch < train_req->epochs; epoch++) {
         auto epoch_losses = co_await asio::co_spawn(
             req.thread_pool_executor(),
             [&]() -> asio::awaitable<std::optional<std::vector<double>>> {
@@ -486,7 +398,7 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
                 auto global_step = step + network_info.loss_points;
 
                 auto res =
-                    co_await m_state->db.insert_loss_point(network_id, global_step, loss_val);
+                    co_await m_state->db.insert_loss_point(*network_id, global_step, loss_val);
                 if (!res) {
                     spdlog::error(
                         "Failed to insert loss point: {} {}", res.error().message, res.error().code
@@ -517,7 +429,7 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
 
         int absolute_epoch = network_info.training_epochs + epoch + 1;
         auto res =
-            co_await m_state->db.insert_training_session(network_id, absolute_epoch, test_correct);
+            co_await m_state->db.insert_training_session(*network_id, absolute_epoch, test_correct);
         if (!res) {
             spdlog::error(
                 "Failed to insert training session: {} {}", res.error().message, res.error().code
@@ -538,10 +450,14 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
     }
 
     auto update_res = co_await m_state->db.update_network_weights(
-        network_id, std::move(network.dump_weights()), std::move(network.dump_biases()),
-        train_req.epochs, step
+        *network_id, std::move(network.dump_weights()), std::move(network.dump_biases()),
+        train_req->epochs, step
     );
     if (!update_res) {
+        spdlog::error(
+            "Failed to update network weights: {} {}", update_res.error().message,
+            update_res.error().code
+        );
         co_await stream.write("error: Failed to save trained network\n");
     }
 
@@ -549,68 +465,47 @@ asio::awaitable<ApiResponse> App::train_network(const httc::Request& req, httc::
 }
 
 asio::awaitable<ApiResponse> App::get_data(const httc::Request& req) {
-    int index;
-    try {
-        auto idx_str = req.path_params.at("idx");
-        index = std::stoi(idx_str);
-    } catch (const std::exception&) {
-        co_return ApiResponse::bad_request("Invalid index");
+    auto index = parse_int_param(req, "idx", "Invalid index");
+    if (!index) {
+        co_return index.error();
     }
 
-    std::optional<Sample> sample_res;
-
-    auto source = req.path_params.at("source");
-    if (source == "test") {
-        sample_res = m_state->get_test_sample(index);
-    } else if (source == "train") {
-        sample_res = m_state->get_train_sample(index);
-    } else {
-        co_return ApiResponse::bad_request("Invalid source");
+    auto sample = load_sample(*m_state, req.path_params.at("source"), *index);
+    if (!sample) {
+        co_return sample.error();
     }
-
-    if (!sample_res) {
-        spdlog::info("Sample from source {} with index {} not found", source, index);
-        co_return ApiResponse::not_found("Training sample not found");
-    }
-
-    co_return ApiResponse::ok(sample_res.value());
+    co_return ApiResponse::ok(*sample);
 }
 
 asio::awaitable<ApiResponse> App::get_test_points(const httc::Request& req) {
-    int network_id;
-    try {
-        network_id = std::stoi(req.path_params.at("id"));
-    } catch (...) {
-        co_return ApiResponse::bad_request("Invalid network ID");
+    auto network_id = parse_int_param(req, "id", "Invalid network ID");
+    if (!network_id) {
+        co_return network_id.error();
     }
 
-    auto sessions_res = co_await m_state->db.get_test_points(network_id);
+    auto sessions_res = co_await m_state->db.get_test_points(*network_id);
     if (!sessions_res) {
-        spdlog::error(
-            "Failed to retrieve training sessions for network {}: {} {}", network_id,
-            sessions_res.error().message, sessions_res.error().code
+        co_return map_db_error(
+            sessions_res.error(), "Failed to retrieve training sessions",
+            "Failed to retrieve training sessions for network {}", *network_id
         );
-        co_return ApiResponse::internal_error("Failed to retrieve training sessions");
     }
 
     co_return ApiResponse::ok(sessions_res.value());
 }
 
 asio::awaitable<ApiResponse> App::get_loss_points(const httc::Request& req) {
-    int network_id;
-    try {
-        network_id = std::stoi(req.path_params.at("id"));
-    } catch (...) {
-        co_return ApiResponse::bad_request("Invalid network ID");
+    auto network_id = parse_int_param(req, "id", "Invalid network ID");
+    if (!network_id) {
+        co_return network_id.error();
     }
 
-    auto points_res = co_await m_state->db.get_loss_points(network_id);
+    auto points_res = co_await m_state->db.get_loss_points(*network_id);
     if (!points_res) {
-        spdlog::error(
-            "Failed to retrieve loss points for network {}: {} {}", network_id,
-            points_res.error().message, points_res.error().code
+        co_return map_db_error(
+            points_res.error(), "Failed to retrieve loss points",
+            "Failed to retrieve loss points for network {}", *network_id
         );
-        co_return ApiResponse::internal_error("Failed to retrieve loss points");
     }
 
     co_return ApiResponse::ok(points_res.value());
