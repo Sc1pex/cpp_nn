@@ -5,24 +5,34 @@
 
 using json = nlohmann::json;
 
-Db::Db(const std::string& db_file_path) : m_db(nullptr, sqlite3_close_v2), m_pool(1) {
+Db Db::create(const std::string& db_file_path) {
     spdlog::info("Opening database at {}", db_file_path);
     sqlite3* raw_db = nullptr;
     int rc = sqlite3_open(db_file_path.data(), &raw_db);
-    m_db.reset(raw_db);
+
+    std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db(raw_db, sqlite3_close_v2);
 
     if (rc != SQLITE_OK) {
         throw std::runtime_error("Failed to open database");
     }
 
-    enable_foreign_keys();
-    create_tables();
-    create_statements();
+    enable_foreign_keys(db.get());
+    create_tables(db.get());
+    auto stmts_map = create_statements(db.get());
+    auto statements = make_statements(db.get());
+
+    return Db(std::move(db), std::move(statements), std::move(stmts_map));
 }
 
-void Db::enable_foreign_keys() {
+Db::Db(
+    std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db, Statements statements, StmtsMap stmts
+)
+: m_db(std::move(db)), m_pool(1), m_statements(std::move(statements)), m_stmts(std::move(stmts)) {
+}
+
+void Db::enable_foreign_keys(sqlite3* db) {
     char* err_msg = nullptr;
-    if (sqlite3_exec(m_db.get(), "PRAGMA foreign_keys = ON;", 0, 0, &err_msg) != SQLITE_OK) {
+    if (sqlite3_exec(db, "PRAGMA foreign_keys = ON;", 0, 0, &err_msg) != SQLITE_OK) {
         std::string error = "Failed to enable foreign keys: ";
         error += err_msg;
         sqlite3_free(err_msg);
@@ -30,10 +40,10 @@ void Db::enable_foreign_keys() {
     }
 }
 
-void Db::create_tables() {
-    auto create_table = [this](const char* sql) {
+void Db::create_tables(sqlite3* db) {
+    auto create_table = [db](const char* sql) {
         char* err_msg = nullptr;
-        if (sqlite3_exec(this->m_db.get(), sql, 0, 0, &err_msg) != SQLITE_OK) {
+        if (sqlite3_exec(db, sql, 0, 0, &err_msg) != SQLITE_OK) {
             std::string error = "Failed to create table: ";
             error += err_msg;
             sqlite3_free(err_msg);
@@ -278,19 +288,14 @@ asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
 
 asio::awaitable<DBResult<bool>> Db::delete_network_by_id(int id) {
     co_return co_await run_on_pool([this, id]() -> std::expected<bool, DBError> {
-        auto stmt = m_stmts.at("delete_network_by_id").get();
+        auto ex = m_statements.delete_network_by_id.bind(id);
 
-        sqlite3_bind_int(stmt, 1, id);
-
-        int rc = sqlite3_step(stmt);
-        if (rc != SQLITE_DONE) {
-            sqlite3_reset(stmt);
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        auto res = ex.next();
+        if (!res) {
+            return std::unexpected(res.error());
         }
 
         int rows_affected = sqlite3_changes(m_db.get());
-        sqlite3_reset(stmt);
-
         return rows_affected > 0;
     }, m_pool);
 }
@@ -327,17 +332,19 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
     );
 }
 
-void Db::create_statements() {
-    auto add_stmt = [this](const char* sql, const char* name) {
+Db::StmtsMap Db::create_statements(sqlite3* db) {
+    StmtsMap stmts;
+
+    auto add_stmt = [&](const char* sql, const char* name) {
         sqlite3_stmt* raw_stmt = nullptr;
-        if (sqlite3_prepare_v2(m_db.get(), sql, -1, &raw_stmt, nullptr) != SQLITE_OK) {
-            const char* err_msg = sqlite3_errmsg(m_db.get());
+        if (sqlite3_prepare_v2(db, sql, -1, &raw_stmt, nullptr) != SQLITE_OK) {
+            const char* err_msg = sqlite3_errmsg(db);
             spdlog::error("Failed to prepare {} statement: {}", name, err_msg);
             throw std::runtime_error(
                 "Failed to prepare " + std::string(name) + " statement" + err_msg
             );
         }
-        m_stmts.emplace(name, StmtPtr{ raw_stmt, sqlite3_finalize });
+        stmts.emplace(name, StmtPtr{ raw_stmt, sqlite3_finalize });
     };
 
     const char* add_network_sql = R"(
@@ -359,10 +366,6 @@ void Db::create_statements() {
     const char* get_networks_sql = R"(
     SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, activations, loss FROM networks;)";
     add_stmt(get_networks_sql, "get_networks");
-
-    const char* delete_network_by_id_sql = R"(
-    DELETE FROM networks WHERE id = ?;)";
-    add_stmt(delete_network_by_id_sql, "delete_network_by_id");
 
     const char* update_network_weights_sql = R"(
     UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ?, loss_points = loss_points + ? WHERE id = ?;)";
@@ -387,6 +390,8 @@ void Db::create_statements() {
     SELECT loss
     FROM training_loss_points WHERE network_id = ? ORDER BY step ASC;)";
     add_stmt(get_loss_points_sql, "get_loss_points");
+
+    return stmts;
 }
 
 void to_json(json& j, const NetworkFull& v) {
@@ -516,4 +521,10 @@ asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_i
         return points;
     }, m_pool
     );
+}
+
+Db::Statements Db::make_statements(sqlite3* db) {
+    return Statements{
+        .delete_network_by_id = { R"(DELETE FROM networks WHERE id = ?;)", db },
+    };
 }

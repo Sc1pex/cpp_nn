@@ -8,6 +8,7 @@
 #include "asio/awaitable.hpp"
 #include "asio/thread_pool.hpp"
 #include "db_error.hpp"
+#include "db_statement.hpp"
 #include "nlohmann/json.hpp"
 
 struct AddNetwork {
@@ -51,7 +52,7 @@ void to_json(nlohmann::json& j, const NetworkInfo& v);
 
 class Db {
 public:
-    Db(const std::string& db_file_path);
+    static Db create(const std::string& db_file_path);
 
     asio::awaitable<DBResult<void>> add_network(AddNetwork network);
     asio::awaitable<DBResult<std::optional<NetworkFull>>> get_full_network_by_id(int id);
@@ -72,14 +73,24 @@ public:
     asio::awaitable<DBResult<std::vector<double>>> get_loss_points(int network_id);
 
 private:
-    void enable_foreign_keys();
-    void create_statements();
-    void create_tables();
+    using StmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
+    using StmtsMap = std::unordered_map<const char*, StmtPtr>;
+    struct Statements {
+        DbStatement<BindList<int>, ColumnList<>> delete_network_by_id;
+    };
+    static Statements make_statements(sqlite3* db);
+
+    static void enable_foreign_keys(sqlite3* db);
+    static StmtsMap create_statements(sqlite3* db);
+    static void create_tables(sqlite3* db);
+
+    Db(std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db, Statements statements,
+       StmtsMap stmts);
 
     // Destruction order matters (first the pool, then the statements and last the db)
     // so the fields must be in this order
-    using StmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
     std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> m_db;
+    Statements m_statements;
     std::unordered_map<const char*, StmtPtr> m_stmts;
     asio::thread_pool m_pool;
 };
