@@ -1,22 +1,14 @@
 #pragma once
 
 #include <sqlite3.h>
-#include <expected>
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include "asio/awaitable.hpp"
 #include "asio/thread_pool.hpp"
+#include "db_error.hpp"
 #include "nlohmann/json.hpp"
-
-struct DBError {
-    int code;
-    std::string_view message;
-};
-template<typename T>
-using DBResult = std::expected<T, DBError>;
 
 struct AddNetwork {
     std::string name;

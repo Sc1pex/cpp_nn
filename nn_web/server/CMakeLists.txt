@@ -24,6 +24,8 @@ target_sources(nn_server
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/api_response.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/app.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/db.hpp
+            ${PROJECT_SOURCE_DIR}/nn_web/server/include/db_error.hpp
+            ${PROJECT_SOURCE_DIR}/nn_web/server/include/db_statement.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/memmat.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/state.hpp
             ${PROJECT_SOURCE_DIR}/nn_web/server/include/utils.hpp
