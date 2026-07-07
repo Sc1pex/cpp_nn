@@ -34,10 +34,10 @@ asio::awaitable<std::expected<std::pair<NetworkFull, nn::Network>, ApiResponse>>
     load_network(Db& db, int network_id) {
     auto network_res = co_await db.get_full_network_by_id(network_id);
     if (!network_res) {
-        co_return map_db_error(
+        co_return std::unexpected(map_db_error(
             network_res.error(), "Failed to retrieve network",
             "Failed to retrieve network with id {}", network_id
-        );
+        ));
     }
     if (!network_res.value()) {
         co_return std::unexpected(ApiResponse::not_found("Network not found"));
