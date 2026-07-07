@@ -1,10 +1,11 @@
 #pragma once
 
+#include <format>
 #include <memory>
 #include <optional>
 #include <tuple>
 #include <type_traits>
-#include "db.hpp"
+#include "db_error.hpp"
 #include "sqlite3.h"
 
 template<typename T>
@@ -73,8 +74,17 @@ private:
     ResetGuard m_guard;
 };
 
-template<BindArg... Binds>
-class DbStatement {
+template<BindArg... Args>
+struct BindList;
+
+template<ColumnArg... Args>
+struct ColumnList;
+
+template<typename BindListType, typename ColumnListType>
+class DbStatement;
+
+template<BindArg... Binds, ColumnArg... Cols>
+class DbStatement<BindList<Binds...>, ColumnList<Cols...>> {
 public:
     DbStatement(const char* stmt, sqlite3* db) : m_stmt(nullptr, sqlite3_finalize) {
         sqlite3_stmt* s;
@@ -85,7 +95,6 @@ public:
         m_stmt.reset(s);
     }
 
-    template<ColumnArg... Cols>
     Extractor<Cols...> bind(Binds... binds) {
         if constexpr (sizeof...(Binds) > 0) {
             size_t idx = 1;
