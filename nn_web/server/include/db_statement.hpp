@@ -9,10 +9,10 @@
 #include "sqlite3.h"
 
 template<typename T>
-concept BindArg = std::is_same_v<int, T>;
+concept BindArg = std::is_same_v<int, T> or std::is_same_v<double, T>;
 
 template<typename T>
-concept ColumnArg = std::is_same_v<int, T>;
+concept ColumnArg = std::is_same_v<int, T> or std::is_same_v<double, T>;
 
 struct ResetGuard {
     ResetGuard(sqlite3_stmt& s) : s(s) {
@@ -70,6 +70,10 @@ private:
     Arg column(size_t idx) const {
         if constexpr (std::is_same_v<Arg, int>) {
             return sqlite3_column_int(&m_guard.s, idx);
+        } else if constexpr (std::is_same_v<Arg, double>) {
+            return sqlite3_column_double(&m_guard.s, idx);
+        } else {
+            static_assert(false, "Unsupported column type");
         }
     }
 
@@ -110,6 +114,10 @@ private:
     void bind(size_t idx, Arg a) {
         if constexpr (std::is_same_v<Arg, int>) {
             sqlite3_bind_int(m_stmt.get(), idx, a);
+        } else if constexpr (std::is_same_v<Arg, double>) {
+            sqlite3_bind_double(m_stmt.get(), idx, a);
+        } else {
+            static_assert(false, "Unsupported bind type");
         }
     }
 
