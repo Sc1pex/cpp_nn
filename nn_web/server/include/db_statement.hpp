@@ -43,7 +43,8 @@ public:
 
         if constexpr (sizeof...(Args) == 0) {
             if (rc != SQLITE_DONE) {
-                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+                int extended_rc = sqlite3_extended_errcode(sqlite3_db_handle(&m_guard.s));
+                return std::unexpected(DBError{ extended_rc, sqlite3_errstr(extended_rc) });
             } else {
                 return {};
             }
@@ -53,7 +54,8 @@ public:
             } else if (rc == SQLITE_DONE) {
                 return std::nullopt;
             } else {
-                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+                int extended_rc = sqlite3_extended_errcode(sqlite3_db_handle(&m_guard.s));
+                return std::unexpected(DBError{ extended_rc, sqlite3_errstr(extended_rc) });
             }
         }
     }
