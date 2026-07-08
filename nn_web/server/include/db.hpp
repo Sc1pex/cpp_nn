@@ -79,6 +79,8 @@ private:
         DbStatement<BindList<int>, ColumnList<>> delete_network_by_id;
         DbStatement<BindList<int, int, int>, ColumnList<>> insert_training_session;
         DbStatement<BindList<int>, ColumnList<int>> get_training_sessions;
+        DbStatement<BindList<int, int, double>, ColumnList<>> insert_loss_point;
+        DbStatement<BindList<int>, ColumnList<double>> get_loss_points;
     };
     static Statements make_statements(sqlite3* db);
 

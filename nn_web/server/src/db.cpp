@@ -371,16 +371,6 @@ Db::StmtsMap Db::create_statements(sqlite3* db) {
     UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ?, loss_points = loss_points + ? WHERE id = ?;)";
     add_stmt(update_network_weights_sql, "update_network_weights");
 
-    const char* insert_loss_point_sql = R"(
-    INSERT INTO training_loss_points (network_id, step, loss)
-    VALUES (?, ?, ?);)";
-    add_stmt(insert_loss_point_sql, "insert_loss_point");
-
-    const char* get_loss_points_sql = R"(
-    SELECT loss
-    FROM training_loss_points WHERE network_id = ? ORDER BY step ASC;)";
-    add_stmt(get_loss_points_sql, "get_loss_points");
-
     return stmts;
 }
 
@@ -453,18 +443,11 @@ asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) 
 asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, double loss) {
     co_return co_await run_on_pool(
         [this, network_id, step, loss]() -> std::expected<void, DBError> {
-        auto stmt = m_stmts.at("insert_loss_point").get();
+        auto ex = m_statements.insert_loss_point.bind(network_id, step, loss);
 
-        sqlite3_bind_int(stmt, 1, network_id);
-        sqlite3_bind_int(stmt, 2, step);
-        sqlite3_bind_double(stmt, 3, loss);
-
-        int rc = sqlite3_step(stmt);
-        sqlite3_reset(stmt);
-
-        if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db.get());
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        auto res = ex.next();
+        if (!res) {
+            return std::unexpected(res.error());
         }
         return {};
     }, m_pool
@@ -474,33 +457,28 @@ asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, 
 asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_id) {
     co_return co_await run_on_pool(
         [this, network_id]() -> std::expected<std::vector<double>, DBError> {
-        auto stmt = m_stmts.at("get_loss_points").get();
-        sqlite3_bind_int(stmt, 1, network_id);
+        auto ex = m_statements.get_loss_points.bind(network_id);
 
         std::vector<double> points;
-        int rc;
         while (true) {
-            rc = sqlite3_step(stmt);
-            if (rc != SQLITE_ROW) {
+            auto res = ex.next();
+
+            if (!res) {
+                return std::unexpected(res.error());
+            } else if (!*res) {
                 break;
+            } else {
+                points.push_back(std::get<0>(**res));
             }
-
-            points.push_back(sqlite3_column_double(stmt, 0));
         }
 
-        if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db.get());
-            sqlite3_reset(stmt);
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
-        }
-        sqlite3_reset(stmt);
         return points;
     }, m_pool
     );
 }
 
 Db::Statements Db::make_statements(sqlite3* db) {
-    return Statements{
+    return Statements {
         .delete_network_by_id = { R"(DELETE FROM networks WHERE id = ?;)", db },
         .insert_training_session = {
             R"(INSERT INTO training_sessions (network_id, epoch, test_correct)
@@ -509,6 +487,14 @@ Db::Statements Db::make_statements(sqlite3* db) {
         .get_training_sessions = {
             R"(SELECT test_correct
               FROM training_sessions WHERE network_id = ? ORDER BY epoch ASC;)",
+            db },
+        .insert_loss_point = {
+            R"(INSERT INTO training_loss_points (network_id, step, loss)
+               VALUES (?, ?, ?);)",
+            db },
+        .get_loss_points = {
+            R"(SELECT loss FROM training_loss_points WHERE network_id = ?
+               ORDER BY step ASC;)",
             db },
     };
 }
