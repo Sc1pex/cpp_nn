@@ -371,16 +371,6 @@ Db::StmtsMap Db::create_statements(sqlite3* db) {
     UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ?, loss_points = loss_points + ? WHERE id = ?;)";
     add_stmt(update_network_weights_sql, "update_network_weights");
 
-    const char* insert_training_session_sql = R"(
-    INSERT INTO training_sessions (network_id, epoch, test_correct)
-    VALUES (?, ?, ?);)";
-    add_stmt(insert_training_session_sql, "insert_training_session");
-
-    const char* get_training_sessions_sql = R"(
-    SELECT test_correct
-    FROM training_sessions WHERE network_id = ? ORDER BY epoch ASC;)";
-    add_stmt(get_training_sessions_sql, "get_training_sessions");
-
     const char* insert_loss_point_sql = R"(
     INSERT INTO training_loss_points (network_id, step, loss)
     VALUES (?, ?, ?);)";
@@ -428,18 +418,11 @@ asio::awaitable<DBResult<void>>
     Db::insert_training_session(int network_id, int epoch, int test_correct) {
     co_return co_await run_on_pool(
         [this, network_id, epoch, test_correct]() -> std::expected<void, DBError> {
-        auto stmt = m_stmts.at("insert_training_session").get();
+        auto ex = m_statements.insert_training_session.bind(network_id, epoch, test_correct);
 
-        sqlite3_bind_int(stmt, 1, network_id);
-        sqlite3_bind_int(stmt, 2, epoch);
-        sqlite3_bind_int(stmt, 3, test_correct);
-
-        int rc = sqlite3_step(stmt);
-        sqlite3_reset(stmt);
-
-        if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db.get());
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        auto res = ex.next();
+        if (!res) {
+            return std::unexpected(res.error());
         }
         return {};
     }, m_pool
@@ -449,26 +432,19 @@ asio::awaitable<DBResult<void>>
 asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) {
     co_return co_await run_on_pool(
         [this, network_id]() -> std::expected<std::vector<int>, DBError> {
-        auto stmt = m_stmts.at("get_training_sessions").get();
-        sqlite3_bind_int(stmt, 1, network_id);
+        auto ex = m_statements.get_training_sessions.bind(network_id);
 
         std::vector<int> sessions;
-        int rc;
         while (true) {
-            rc = sqlite3_step(stmt);
-            if (rc != SQLITE_ROW) {
+            auto res = ex.next();
+            if (!res) {
+                return std::unexpected(res.error());
+            }
+            if (!*res) {
                 break;
             }
-
-            sessions.push_back(sqlite3_column_int(stmt, 0));
+            sessions.push_back(std::get<0>(**res));
         }
-
-        if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db.get());
-            sqlite3_reset(stmt);
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
-        }
-        sqlite3_reset(stmt);
         return sessions;
     }, m_pool
     );
@@ -526,5 +502,13 @@ asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_i
 Db::Statements Db::make_statements(sqlite3* db) {
     return Statements{
         .delete_network_by_id = { R"(DELETE FROM networks WHERE id = ?;)", db },
+        .insert_training_session = {
+            R"(INSERT INTO training_sessions (network_id, epoch, test_correct)
+              VALUES (?, ?, ?);)",
+            db },
+        .get_training_sessions = {
+            R"(SELECT test_correct
+              FROM training_sessions WHERE network_id = ? ORDER BY epoch ASC;)",
+            db },
     };
 }

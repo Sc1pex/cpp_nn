@@ -77,6 +77,8 @@ private:
     using StmtsMap = std::unordered_map<const char*, StmtPtr>;
     struct Statements {
         DbStatement<BindList<int>, ColumnList<>> delete_network_by_id;
+        DbStatement<BindList<int, int, int>, ColumnList<>> insert_training_session;
+        DbStatement<BindList<int>, ColumnList<int>> get_training_sessions;
     };
     static Statements make_statements(sqlite3* db);
 
