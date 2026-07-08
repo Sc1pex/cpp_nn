@@ -1,11 +1,11 @@
 #pragma once
 
 #include <expected>
-#include <string_view>
+#include <string>
 
 struct DBError {
     int code;
-    std::string_view message;
+    std::string message;
 };
 template<typename T>
 using DBResult = std::expected<T, DBError>;

@@ -34,40 +34,56 @@ public:
     Extractor(sqlite3_stmt& stmt) : m_guard(stmt) {
     }
 
-    using NextReturnType = std::conditional_t<
-        sizeof...(Args) == 0, std::expected<void, DBError>,
-        std::expected<std::optional<std::tuple<Args...>>, DBError>>;
-
-    NextReturnType next() const {
+    std::expected<void, DBError> next()
+        requires(sizeof...(Args) == 0)
+    {
         int rc = sqlite3_step(&m_guard.s);
+        if (rc != SQLITE_DONE) {
+            return std::unexpected(get_db_error());
+        }
+        return {};
+    }
 
-        if constexpr (sizeof...(Args) == 0) {
-            if (rc != SQLITE_DONE) {
-                int extended_rc = sqlite3_extended_errcode(sqlite3_db_handle(&m_guard.s));
-                return std::unexpected(DBError{ extended_rc, sqlite3_errstr(extended_rc) });
-            } else {
-                return {};
-            }
+    std::expected<std::optional<std::tuple<Args...>>, DBError> next()
+        requires(sizeof...(Args) > 0)
+    {
+        int rc = sqlite3_step(&m_guard.s);
+        if (rc == SQLITE_ROW) {
+            return std::optional(get_row(std::index_sequence_for<Args...>{}));
+        } else if (rc == SQLITE_DONE) {
+            return std::nullopt;
         } else {
-            if (rc == SQLITE_ROW) {
-                return std::optional(get_row(std::index_sequence_for<Args...>{}));
-            } else if (rc == SQLITE_DONE) {
-                return std::nullopt;
-            } else {
-                int extended_rc = sqlite3_extended_errcode(sqlite3_db_handle(&m_guard.s));
-                return std::unexpected(DBError{ extended_rc, sqlite3_errstr(extended_rc) });
-            }
+            return std::unexpected(get_db_error());
         }
     }
 
+    template<typename Row>
+        requires(sizeof...(Args) > 0)
+    std::expected<std::optional<Row>, DBError> next_as() {
+        auto result = next();
+        if (!result)
+            return std::unexpected(result.error());
+        if (!*result)
+            return std::nullopt;
+        return std::apply([](auto&&... vals) {
+            return Row{ std::forward<decltype(vals)>(vals)... };
+        }, std::move(**result));
+    }
+
 private:
+    DBError get_db_error() {
+        sqlite3* db = sqlite3_db_handle(&m_guard.s);
+        int rc = sqlite3_extended_errcode(db);
+        return DBError{ rc, sqlite3_errmsg(db) };
+    }
+
     template<size_t... Is>
-    std::tuple<Args...> get_row(std::index_sequence<Is...>) const {
+    std::tuple<Args...> get_row(std::index_sequence<Is...>) {
         return { column<Args>(Is)... };
     }
 
     template<ColumnArg Arg>
-    Arg column(size_t idx) const {
+    Arg column(size_t idx) {
         if constexpr (std::is_same_v<Arg, int>) {
             return sqlite3_column_int(&m_guard.s, idx);
         } else if constexpr (std::is_same_v<Arg, double>) {
