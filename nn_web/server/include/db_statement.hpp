@@ -38,7 +38,7 @@ public:
         sizeof...(Args) == 0, std::expected<void, DBError>,
         std::expected<std::optional<std::tuple<Args...>>, DBError>>;
 
-    NextReturnType next() {
+    NextReturnType next() const {
         int rc = sqlite3_step(&m_guard.s);
 
         if constexpr (sizeof...(Args) == 0) {
@@ -67,7 +67,7 @@ private:
     }
 
     template<ColumnArg Arg>
-    Arg column(size_t idx) {
+    Arg column(size_t idx) const {
         if constexpr (std::is_same_v<Arg, int>) {
             return sqlite3_column_int(&m_guard.s, idx);
         }
