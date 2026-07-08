@@ -5,6 +5,7 @@
 #include <optional>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 #include "db_error.hpp"
 #include "sqlite3.h"
 
@@ -12,7 +13,8 @@ template<typename T>
 concept BindArg = std::is_same_v<int, T> or std::is_same_v<double, T>;
 
 template<typename T>
-concept ColumnArg = std::is_same_v<int, T> or std::is_same_v<double, T>;
+concept ColumnArg = std::is_same_v<int, T> or std::is_same_v<double, T>
+                    or std::is_same_v<std::string, T> or std::is_same_v<std::vector<double>, T>;
 
 struct ResetGuard {
     ResetGuard(sqlite3_stmt& s) : s(s) {
@@ -88,6 +90,19 @@ private:
             return sqlite3_column_int(&m_guard.s, idx);
         } else if constexpr (std::is_same_v<Arg, double>) {
             return sqlite3_column_double(&m_guard.s, idx);
+        } else if constexpr (std::is_same_v<Arg, std::string>) {
+            auto text = reinterpret_cast<const char*>(sqlite3_column_text(&m_guard.s, idx));
+            if (text == nullptr) {
+                return std::string{};
+            }
+            return std::string{ text };
+        } else if constexpr (std::is_same_v<Arg, std::vector<double>>) {
+            const void* data = sqlite3_column_blob(&m_guard.s, idx);
+            size_t data_size = static_cast<size_t>(sqlite3_column_bytes(&m_guard.s, idx));
+            size_t num_elements = data_size / sizeof(double);
+
+            const double* double_ptr = static_cast<const double*>(data);
+            return std::vector<double>(double_ptr, double_ptr + num_elements);
         } else {
             static_assert(false, "Unsupported column type");
         }
