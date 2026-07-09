@@ -18,16 +18,13 @@ Db Db::create(const std::string& db_file_path) {
 
     enable_foreign_keys(db.get());
     create_tables(db.get());
-    auto stmts_map = create_statements(db.get());
     auto statements = make_statements(db.get());
 
-    return Db(std::move(db), std::move(statements), std::move(stmts_map));
+    return Db(std::move(db), std::move(statements));
 }
 
-Db::Db(
-    std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db, Statements statements, StmtsMap stmts
-)
-: m_db(std::move(db)), m_pool(1), m_statements(std::move(statements)), m_stmts(std::move(stmts)) {
+Db::Db(std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db, Statements statements)
+: m_db(std::move(db)), m_pool(1), m_statements(std::move(statements)) {
 }
 
 void Db::enable_foreign_keys(sqlite3* db) {
@@ -330,12 +327,6 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
     },
         m_pool
     );
-}
-
-Db::StmtsMap Db::create_statements(sqlite3* db) {
-    StmtsMap stmts;
-
-    return stmts;
 }
 
 void to_json(json& j, const NetworkFull& v) {

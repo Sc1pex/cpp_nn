@@ -73,8 +73,6 @@ public:
     asio::awaitable<DBResult<std::vector<double>>> get_loss_points(int network_id);
 
 private:
-    using StmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
-    using StmtsMap = std::unordered_map<const char*, StmtPtr>;
     struct Statements {
         DbStatement add_network;
         DbStatement get_network_by_id;
@@ -92,16 +90,13 @@ private:
     static Statements make_statements(sqlite3* db);
 
     static void enable_foreign_keys(sqlite3* db);
-    static StmtsMap create_statements(sqlite3* db);
     static void create_tables(sqlite3* db);
 
-    Db(std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db, Statements statements,
-       StmtsMap stmts);
+    Db(std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db, Statements statements);
 
     // Destruction order matters (first the pool, then the statements and last the db)
     // so the fields must be in this order
     std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> m_db;
     Statements m_statements;
-    std::unordered_map<const char*, StmtPtr> m_stmts;
     asio::thread_pool m_pool;
 };
