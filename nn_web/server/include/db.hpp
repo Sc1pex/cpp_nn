@@ -1,22 +1,14 @@
 #pragma once
 
 #include <sqlite3.h>
-#include <expected>
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
-#include <unordered_map>
 #include "asio/awaitable.hpp"
 #include "asio/thread_pool.hpp"
+#include "db_error.hpp"
+#include "db_statement.hpp"
 #include "nlohmann/json.hpp"
-
-struct DBError {
-    int code;
-    std::string_view message;
-};
-template<typename T>
-using DBResult = std::expected<T, DBError>;
 
 struct AddNetwork {
     std::string name;
@@ -59,7 +51,7 @@ void to_json(nlohmann::json& j, const NetworkInfo& v);
 
 class Db {
 public:
-    Db(const std::string& db_file_path);
+    static Db create(const std::string& db_file_path);
 
     asio::awaitable<DBResult<void>> add_network(AddNetwork network);
     asio::awaitable<DBResult<std::optional<NetworkFull>>> get_full_network_by_id(int id);
@@ -80,14 +72,30 @@ public:
     asio::awaitable<DBResult<std::vector<double>>> get_loss_points(int network_id);
 
 private:
-    void enable_foreign_keys();
-    void create_statements();
-    void create_tables();
+    struct Statements {
+        DbStatement add_network;
+        DbStatement get_network_by_id;
+        DbStatement get_full_network_by_id;
+        DbStatement get_networks;
+        DbStatement update_network_params;
+        DbStatement delete_network_by_id;
+
+        DbStatement insert_training_session;
+        DbStatement get_training_sessions;
+
+        DbStatement insert_loss_point;
+        DbStatement get_loss_points;
+    };
+    static Statements make_statements(sqlite3* db);
+
+    static void enable_foreign_keys(sqlite3* db);
+    static void create_tables(sqlite3* db);
+
+    Db(std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db, Statements statements);
 
     // Destruction order matters (first the pool, then the statements and last the db)
     // so the fields must be in this order
-    using StmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
     std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> m_db;
-    std::unordered_map<const char*, StmtPtr> m_stmts;
+    Statements m_statements;
     asio::thread_pool m_pool;
 };

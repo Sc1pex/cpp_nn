@@ -16,7 +16,8 @@ struct Sample {
 
 struct State {
     State()
-    : db("nn_web.db"), train_inputs("mnist_data/train_inputs.bin", IMAGE_SIZE, TRAIN_SIZE),
+    : db(Db::create("nn_web.db")),
+      train_inputs("mnist_data/train_inputs.bin", IMAGE_SIZE, TRAIN_SIZE),
       train_labels("mnist_data/train_labels.bin", LABEL_SIZE, TRAIN_SIZE),
       test_inputs("mnist_data/test_inputs.bin", IMAGE_SIZE, TEST_SIZE),
       test_labels("mnist_data/test_labels.bin", LABEL_SIZE, TEST_SIZE) {
