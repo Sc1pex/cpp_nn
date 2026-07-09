@@ -335,42 +335,6 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
 Db::StmtsMap Db::create_statements(sqlite3* db) {
     StmtsMap stmts;
 
-    auto add_stmt = [&](const char* sql, const char* name) {
-        sqlite3_stmt* raw_stmt = nullptr;
-        if (sqlite3_prepare_v2(db, sql, -1, &raw_stmt, nullptr) != SQLITE_OK) {
-            const char* err_msg = sqlite3_errmsg(db);
-            spdlog::error("Failed to prepare {} statement: {}", name, err_msg);
-            throw std::runtime_error(
-                "Failed to prepare " + std::string(name) + " statement" + err_msg
-            );
-        }
-        stmts.emplace(name, StmtPtr{ raw_stmt, sqlite3_finalize });
-    };
-
-    const char* add_network_sql = R"(
-    INSERT INTO networks (
-        name, layer_sizes, weights, biases, activations, loss
-    ) VALUES (?, ?, ?, ?, ?, ?);)";
-    add_stmt(add_network_sql, "add_network");
-
-    const char* get_network_by_id_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, activations, loss
-    FROM networks WHERE id = ?;)";
-    add_stmt(get_network_by_id_sql, "get_network_by_id");
-
-    const char* get_full_network_by_id_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, weights, biases, activations, loss, loss_points
-    FROM networks WHERE id = ?;)";
-    add_stmt(get_full_network_by_id_sql, "get_full_network_by_id");
-
-    const char* get_networks_sql = R"(
-    SELECT id, name, created_at, layer_sizes, correct_predictions, cost, training_epochs, activations, loss FROM networks;)";
-    add_stmt(get_networks_sql, "get_networks");
-
-    const char* update_network_weights_sql = R"(
-    UPDATE networks SET weights = ?, biases = ?, training_epochs = training_epochs + ?, loss_points = loss_points + ? WHERE id = ?;)";
-    add_stmt(update_network_weights_sql, "update_network_weights");
-
     return stmts;
 }
 
@@ -488,22 +452,59 @@ asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_i
 
 Db::Statements Db::make_statements(sqlite3* db) {
     return Statements {
-        .delete_network_by_id = { R"(DELETE FROM networks WHERE id = ?;)", db },
+        .add_network = {
+            R"(INSERT INTO networks (name, layer_sizes, weights, biases, activations, loss)
+               VALUES (?, ?, ?, ?, ?, ?);)",
+            db },
+
+        .get_network_by_id = {
+            R"(SELECT id, name, created_at, layer_sizes, correct_predictions, cost,
+                      training_epochs, activations, loss
+               FROM networks WHERE id = ?;)",
+            db },
+
+        .get_full_network_by_id = {
+            R"(SELECT id, name, created_at, layer_sizes, correct_predictions, cost,
+                      training_epochs, weights, biases, activations, loss, loss_points
+               FROM networks WHERE id = ?;)",
+            db },
+
+        .get_networks = {
+            R"(SELECT id, name, created_at, layer_sizes, correct_predictions, cost,
+                      training_epochs, activations, loss
+               FROM networks;)",
+            db },
+
+        .update_network_params = {
+            R"(UPDATE networks
+               SET weights = ?, biases = ?,
+                   training_epochs = training_epochs + ?,
+                   loss_points = loss_points + ?
+               WHERE id = ?;)",
+            db },
+
+        .delete_network_by_id = {
+            R"(DELETE FROM networks WHERE id = ?;)",
+            db },
+
         .insert_training_session = {
             R"(INSERT INTO training_sessions (network_id, epoch, test_correct)
-              VALUES (?, ?, ?);)",
+               VALUES (?, ?, ?);)",
             db },
+
         .get_training_sessions = {
             R"(SELECT test_correct
-              FROM training_sessions WHERE network_id = ? ORDER BY epoch ASC;)",
+               FROM training_sessions WHERE network_id = ? ORDER BY epoch ASC;)",
             db },
+
         .insert_loss_point = {
             R"(INSERT INTO training_loss_points (network_id, step, loss)
                VALUES (?, ?, ?);)",
             db },
+
         .get_loss_points = {
-            R"(SELECT loss FROM training_loss_points WHERE network_id = ?
-               ORDER BY step ASC;)",
+            R"(SELECT loss
+               FROM training_loss_points WHERE network_id = ? ORDER BY step ASC;)",
             db },
     };
 }

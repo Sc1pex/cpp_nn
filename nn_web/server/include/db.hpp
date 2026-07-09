@@ -76,9 +76,16 @@ private:
     using StmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
     using StmtsMap = std::unordered_map<const char*, StmtPtr>;
     struct Statements {
+        DbStatement add_network;
+        DbStatement get_network_by_id;
+        DbStatement get_full_network_by_id;
+        DbStatement get_networks;
+        DbStatement update_network_params;
         DbStatement delete_network_by_id;
+
         DbStatement insert_training_session;
         DbStatement get_training_sessions;
+
         DbStatement insert_loss_point;
         DbStatement get_loss_points;
     };
