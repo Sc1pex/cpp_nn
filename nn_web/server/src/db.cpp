@@ -100,38 +100,31 @@ asio::awaitable<std::invoke_result_t<F>> run_on_pool(F&& operation, asio::thread
 asio::awaitable<DBResult<void>> Db::add_network(AddNetwork network) {
     co_return co_await run_on_pool(
         [this, network = std::move(network)]() -> std::expected<void, DBError> {
-        auto stmt = m_stmts.at("add_network").get();
-
-        sqlite3_bind_text(stmt, 1, network.name.c_str(), -1, SQLITE_STATIC);
-
         nlohmann::json layer_sizes_json = network.layer_sizes;
         std::string layer_sizes_str = layer_sizes_json.dump();
-        sqlite3_bind_text(stmt, 2, layer_sizes_str.c_str(), -1, SQLITE_STATIC);
-
-        sqlite3_bind_blob(
-            stmt, 3, network.weights.data(),
-            static_cast<int>(network.weights.size() * sizeof(double)), SQLITE_STATIC
-        );
-        sqlite3_bind_blob(
-            stmt, 4, network.biases.data(),
-            static_cast<int>(network.biases.size() * sizeof(double)), SQLITE_STATIC
-        );
 
         nlohmann::json activations_json = network.activations;
         std::string activations_str = activations_json.dump();
-        sqlite3_bind_text(stmt, 5, activations_str.c_str(), -1, SQLITE_STATIC);
 
-        sqlite3_bind_text(stmt, 6, network.loss.c_str(), -1, SQLITE_STATIC);
+        auto ex =
+            m_statements.add_network.binder()
+                .bind_text(network.name.c_str())
+                .bind_text(layer_sizes_str.c_str())
+                .bind_blob(
+                    network.weights.data(),
+                    static_cast<int>(network.weights.size() * sizeof(double))
+                )
+                .bind_blob(
+                    network.biases.data(), static_cast<int>(network.biases.size() * sizeof(double))
+                )
+                .bind_text(activations_str.c_str())
+                .bind_text(network.loss.c_str())
+                .execute();
 
-        int rc = sqlite3_step(stmt);
-        if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db.get());
-
-            sqlite3_reset(stmt);
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        auto res = ex.next();
+        if (!res) {
+            return std::unexpected(res.error());
         }
-
-        sqlite3_reset(stmt);
         return {};
     }, m_pool
     );
@@ -140,41 +133,37 @@ asio::awaitable<DBResult<void>> Db::add_network(AddNetwork network) {
 asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(int id) {
     co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkInfo>, DBError> {
-        auto stmt = m_stmts.at("get_network_by_id").get();
+        auto ex = m_statements.get_network_by_id.binder().bind_int(id).execute();
 
-        sqlite3_bind_int(stmt, 1, id);
-
-        int rc = sqlite3_step(stmt);
-        if (rc != SQLITE_ROW) {
-            rc = sqlite3_extended_errcode(m_db.get());
-            sqlite3_reset(stmt);
-            if (rc == SQLITE_DONE) {
-                return std::nullopt;
-            } else {
-                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
-            }
+        auto res = ex.next_row();
+        if (!res) {
+            return std::unexpected(res.error());
+        }
+        if (!*res) {
+            return std::nullopt;
         }
 
-        NetworkInfo network;
-        network.id = sqlite3_column_int(stmt, 0);
-        network.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        network.created_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        auto row = **res;
 
-        std::string layer_sizes_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        NetworkInfo network;
+        network.id = row.next_int();
+        network.name = row.next_text();
+        network.created_at = row.next_text();
+
+        std::string layer_sizes_str = row.next_text();
         nlohmann::json layer_sizes_json = nlohmann::json::parse(layer_sizes_str);
         network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
-        network.correct_predictions = sqlite3_column_int(stmt, 4);
-        network.cost = sqlite3_column_double(stmt, 5);
-        network.training_epochs = sqlite3_column_int(stmt, 6);
+        network.correct_predictions = row.next_int();
+        network.cost = row.next_double();
+        network.training_epochs = row.next_int();
 
-        std::string activations_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+        std::string activations_str = row.next_text();
         nlohmann::json activations_json = nlohmann::json::parse(activations_str);
         network.activations = activations_json.get<std::vector<std::string>>();
 
-        network.loss = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
+        network.loss = row.next_text();
 
-        sqlite3_reset(stmt);
         return network;
     }, m_pool
     );
@@ -183,53 +172,47 @@ asio::awaitable<DBResult<std::optional<NetworkInfo>>> Db::get_network_by_id(int 
 asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id(int id) {
     co_return co_await run_on_pool(
         [this, id]() -> std::expected<std::optional<NetworkFull>, DBError> {
-        auto stmt = m_stmts.at("get_full_network_by_id").get();
+        auto ex = m_statements.get_full_network_by_id.binder().bind_int(id).execute();
 
-        sqlite3_bind_int(stmt, 1, id);
-
-        int rc = sqlite3_step(stmt);
-        if (rc != SQLITE_ROW) {
-            rc = sqlite3_extended_errcode(m_db.get());
-            sqlite3_reset(stmt);
-            if (rc == SQLITE_DONE) {
-                return std::nullopt;
-            } else {
-                return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
-            }
+        auto res = ex.next_row();
+        if (!res) {
+            return std::unexpected(res.error());
+        }
+        if (!*res) {
+            return std::nullopt;
         }
 
-        NetworkFull network;
-        network.id = sqlite3_column_int(stmt, 0);
-        network.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        network.created_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        auto row = **res;
 
-        std::string layer_sizes_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        NetworkFull network;
+        network.id = row.next_int();
+        network.name = row.next_text();
+        network.created_at = row.next_text();
+
+        std::string layer_sizes_str = row.next_text();
         nlohmann::json layer_sizes_json = nlohmann::json::parse(layer_sizes_str);
         network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
-        network.correct_predictions = sqlite3_column_int(stmt, 4);
-        network.cost = sqlite3_column_double(stmt, 5);
-        network.training_epochs = sqlite3_column_int(stmt, 6);
+        network.correct_predictions = row.next_int();
+        network.cost = row.next_double();
+        network.training_epochs = row.next_int();
 
-        const void* weights_blob = sqlite3_column_blob(stmt, 7);
-        int weights_size = sqlite3_column_bytes(stmt, 7);
-        network.weights.resize(weights_size / sizeof(double));
-        std::memcpy(network.weights.data(), weights_blob, static_cast<size_t>(weights_size));
+        auto weights = row.next_blob();
+        network.weights.resize(weights.bytes / sizeof(double));
+        std::memcpy(network.weights.data(), weights.data, static_cast<size_t>(weights.bytes));
 
-        const void* biases_blob = sqlite3_column_blob(stmt, 8);
-        int biases_size = sqlite3_column_bytes(stmt, 8);
-        network.biases.resize(biases_size / sizeof(double));
-        std::memcpy(network.biases.data(), biases_blob, static_cast<size_t>(biases_size));
+        auto biases = row.next_blob();
+        network.biases.resize(biases.bytes / sizeof(double));
+        std::memcpy(network.biases.data(), biases.data, static_cast<size_t>(biases.bytes));
 
-        std::string activations_str = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
+        std::string activations_str = row.next_text();
         nlohmann::json activations_json = nlohmann::json::parse(activations_str);
         network.activations = activations_json.get<std::vector<std::string>>();
 
-        network.loss = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 10));
+        network.loss = row.next_text();
 
-        network.loss_points = sqlite3_column_int(stmt, 11);
+        network.loss_points = row.next_int();
 
-        sqlite3_reset(stmt);
         return network;
     }, m_pool
     );
@@ -237,48 +220,42 @@ asio::awaitable<DBResult<std::optional<NetworkFull>>> Db::get_full_network_by_id
 
 asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
     co_return co_await run_on_pool([this]() -> std::expected<std::vector<NetworkInfo>, DBError> {
-        auto stmt = m_stmts.at("get_networks").get();
+        auto ex = m_statements.get_networks.binder().execute();
 
         std::vector<NetworkInfo> networks;
 
-        int rc;
         while (true) {
-            rc = sqlite3_step(stmt);
-            if (rc != SQLITE_ROW) {
+            auto res = ex.next_row();
+            if (!res) {
+                return std::unexpected(res.error());
+            }
+            if (!*res) {
                 break;
             }
+            auto row = **res;
 
             NetworkInfo network;
-            network.id = sqlite3_column_int(stmt, 0);
-            network.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-            network.created_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            network.id = row.next_int();
+            network.name = row.next_text();
+            network.created_at = row.next_text();
 
-            std::string layer_sizes_str =
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+            std::string layer_sizes_str = row.next_text();
             nlohmann::json layer_sizes_json = nlohmann::json::parse(layer_sizes_str);
             network.layer_sizes = layer_sizes_json.get<std::vector<int>>();
 
-            network.correct_predictions = sqlite3_column_int(stmt, 4);
-            network.cost = sqlite3_column_double(stmt, 5);
-            network.training_epochs = sqlite3_column_int(stmt, 6);
+            network.correct_predictions = row.next_int();
+            network.cost = row.next_double();
+            network.training_epochs = row.next_int();
 
-            std::string activations_str =
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+            std::string activations_str = row.next_text();
             nlohmann::json activations_json = nlohmann::json::parse(activations_str);
             network.activations = activations_json.get<std::vector<std::string>>();
 
-            network.loss = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
+            network.loss = row.next_text();
 
             networks.push_back(network);
         }
 
-        if (rc != SQLITE_DONE) {
-            rc = sqlite3_extended_errcode(m_db.get());
-            sqlite3_reset(stmt);
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
-        }
-
-        sqlite3_reset(stmt);
         return networks;
     }, m_pool);
 }
@@ -304,24 +281,17 @@ asio::awaitable<DBResult<void>> Db::update_network_weights(
     co_return co_await run_on_pool(
         [this, id, weights = std::move(weights), biases = std::move(biases), epochs_added,
          loss_points_added]() -> std::expected<void, DBError> {
-        auto stmt = m_stmts.at("update_network_weights").get();
+        auto ex = m_statements.update_network_params.binder()
+                      .bind_blob(weights.data(), static_cast<int>(weights.size() * sizeof(double)))
+                      .bind_blob(biases.data(), static_cast<int>(biases.size() * sizeof(double)))
+                      .bind_int(epochs_added)
+                      .bind_int(loss_points_added)
+                      .bind_int(id)
+                      .execute();
 
-        sqlite3_bind_blob(
-            stmt, 1, weights.data(), static_cast<int>(weights.size() * sizeof(double)),
-            SQLITE_STATIC
-        );
-        sqlite3_bind_blob(
-            stmt, 2, biases.data(), static_cast<int>(biases.size() * sizeof(double)), SQLITE_STATIC
-        );
-        sqlite3_bind_int(stmt, 3, epochs_added);
-        sqlite3_bind_int(stmt, 4, loss_points_added);
-        sqlite3_bind_int(stmt, 5, id);
-
-        int rc = sqlite3_step(stmt);
-        sqlite3_reset(stmt);
-
-        if (rc != SQLITE_DONE) {
-            return std::unexpected(DBError{ rc, sqlite3_errstr(rc) });
+        auto res = ex.next();
+        if (!res) {
+            return std::unexpected(res.error());
         }
         return {};
     },

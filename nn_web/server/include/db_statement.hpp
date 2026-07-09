@@ -26,7 +26,6 @@ struct Blob {
     int bytes;
 };
 
-// Must not be used after the next call to Extractor::next_row() or after the
 class Row {
 public:
     explicit Row(sqlite3_stmt& stmt) : m_stmt(stmt) {

@@ -4,7 +4,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include "asio/awaitable.hpp"
 #include "asio/thread_pool.hpp"
 #include "db_error.hpp"
