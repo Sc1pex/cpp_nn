@@ -11,6 +11,7 @@ target_sources(nn_server
         ./src/api_response.cpp
         ./src/app.cpp
         ./src/db.cpp
+        ./src/db_statement.cpp
         ./src/main.cpp
         ./src/memmat.cpp
         ./src/state.cpp

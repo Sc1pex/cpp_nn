@@ -1,23 +1,14 @@
 #pragma once
 
-#include <format>
+#include <expected>
 #include <memory>
 #include <optional>
-#include <tuple>
-#include <type_traits>
-#include <vector>
+#include <string>
 #include "db_error.hpp"
 #include "sqlite3.h"
 
-template<typename T>
-concept BindArg = std::is_same_v<int, T> or std::is_same_v<double, T>;
-
-template<typename T>
-concept ColumnArg = std::is_same_v<int, T> or std::is_same_v<double, T>
-                    or std::is_same_v<std::string, T> or std::is_same_v<std::vector<double>, T>;
-
 struct ResetGuard {
-    ResetGuard(sqlite3_stmt& s) : s(s) {
+    explicit ResetGuard(sqlite3_stmt& s) : s(s) {
     }
     ~ResetGuard() {
         sqlite3_reset(&s);
@@ -30,127 +21,69 @@ struct ResetGuard {
     sqlite3_stmt& s;
 };
 
-template<ColumnArg... Args>
-class Extractor {
+struct Blob {
+    const void* data;
+    int bytes;
+};
+
+// Must not be used after the next call to Extractor::next_row() or after the
+class Row {
 public:
-    Extractor(sqlite3_stmt& stmt) : m_guard(stmt) {
+    explicit Row(sqlite3_stmt& stmt) : m_stmt(stmt) {
     }
 
-    std::expected<void, DBError> next()
-        requires(sizeof...(Args) == 0)
-    {
-        int rc = sqlite3_step(&m_guard.s);
-        if (rc != SQLITE_DONE) {
-            return std::unexpected(get_db_error());
-        }
-        return {};
-    }
-
-    std::expected<std::optional<std::tuple<Args...>>, DBError> next()
-        requires(sizeof...(Args) > 0)
-    {
-        int rc = sqlite3_step(&m_guard.s);
-        if (rc == SQLITE_ROW) {
-            return std::optional(get_row(std::index_sequence_for<Args...>{}));
-        } else if (rc == SQLITE_DONE) {
-            return std::nullopt;
-        } else {
-            return std::unexpected(get_db_error());
-        }
-    }
-
-    template<typename Row>
-        requires(sizeof...(Args) > 0)
-    std::expected<std::optional<Row>, DBError> next_as() {
-        auto result = next();
-        if (!result)
-            return std::unexpected(result.error());
-        if (!*result)
-            return std::nullopt;
-        return std::apply([](auto&&... vals) {
-            return Row{ std::forward<decltype(vals)>(vals)... };
-        }, std::move(**result));
-    }
+    [[nodiscard]] int next_int();
+    [[nodiscard]] double next_double();
+    [[nodiscard]] std::string next_text();
+    [[nodiscard]] Blob next_blob();
 
 private:
-    DBError get_db_error() {
-        sqlite3* db = sqlite3_db_handle(&m_guard.s);
-        int rc = sqlite3_extended_errcode(db);
-        return DBError{ rc, sqlite3_errmsg(db) };
+    sqlite3_stmt& m_stmt;
+    int m_col_idx = 0;
+};
+
+class Extractor {
+public:
+    explicit Extractor(sqlite3_stmt& stmt) : m_guard(stmt) {
     }
 
-    template<size_t... Is>
-    std::tuple<Args...> get_row(std::index_sequence<Is...>) {
-        return { column<Args>(Is)... };
-    }
+    // Steps a non-row statement (INSERT, UPDATE, DELETE).
+    // Returns an error if the result is anything other than SQLITE_DONE.
+    [[nodiscard]] std::expected<void, DBError> next();
 
-    template<ColumnArg Arg>
-    Arg column(size_t idx) {
-        if constexpr (std::is_same_v<Arg, int>) {
-            return sqlite3_column_int(&m_guard.s, idx);
-        } else if constexpr (std::is_same_v<Arg, double>) {
-            return sqlite3_column_double(&m_guard.s, idx);
-        } else if constexpr (std::is_same_v<Arg, std::string>) {
-            auto text = reinterpret_cast<const char*>(sqlite3_column_text(&m_guard.s, idx));
-            if (text == nullptr) {
-                return std::string{};
-            }
-            return std::string{ text };
-        } else if constexpr (std::is_same_v<Arg, std::vector<double>>) {
-            const void* data = sqlite3_column_blob(&m_guard.s, idx);
-            size_t data_size = static_cast<size_t>(sqlite3_column_bytes(&m_guard.s, idx));
-            size_t num_elements = data_size / sizeof(double);
+    // Steps the statement. Returns the next Row if one is available,
+    // nullopt when done, or an error on failure.
+    [[nodiscard]] std::expected<std::optional<Row>, DBError> next_row();
 
-            const double* double_ptr = static_cast<const double*>(data);
-            return std::vector<double>(double_ptr, double_ptr + num_elements);
-        } else {
-            static_assert(false, "Unsupported column type");
-        }
-    }
+private:
+    DBError get_db_error();
 
     ResetGuard m_guard;
 };
 
-template<BindArg... Args>
-struct BindList;
-
-template<ColumnArg... Args>
-struct ColumnList;
-
-template<typename BindListType, typename ColumnListType>
-class DbStatement;
-
-template<BindArg... Binds, ColumnArg... Cols>
-class DbStatement<BindList<Binds...>, ColumnList<Cols...>> {
+class Binder {
 public:
-    DbStatement(const char* stmt, sqlite3* db) : m_stmt(nullptr, sqlite3_finalize) {
-        sqlite3_stmt* s;
-        int rc = sqlite3_prepare_v2(db, stmt, -1, &s, nullptr);
-        if (rc != SQLITE_OK) {
-            throw std::runtime_error(sqlite3_errstr(rc));
-        }
-        m_stmt.reset(s);
+    explicit Binder(sqlite3_stmt& stmt) : m_stmt(stmt) {
     }
 
-    Extractor<Cols...> bind(Binds... binds) {
-        if constexpr (sizeof...(Binds) > 0) {
-            size_t idx = 1;
-            (bind(idx++, std::forward<Binds>(binds)), ...);
-        }
-        return Extractor<Cols...>(*m_stmt);
-    }
+    [[nodiscard]] Binder& bind_int(int value);
+    [[nodiscard]] Binder& bind_double(double value);
+    [[nodiscard]] Binder& bind_text(const char* text);
+    [[nodiscard]] Binder& bind_blob(const void* data, int bytes);
+
+    [[nodiscard]] Extractor execute() &&;
 
 private:
-    template<BindArg Arg>
-    void bind(size_t idx, Arg a) {
-        if constexpr (std::is_same_v<Arg, int>) {
-            sqlite3_bind_int(m_stmt.get(), idx, a);
-        } else if constexpr (std::is_same_v<Arg, double>) {
-            sqlite3_bind_double(m_stmt.get(), idx, a);
-        } else {
-            static_assert(false, "Unsupported bind type");
-        }
-    }
+    sqlite3_stmt& m_stmt;
+    int m_bind_idx = 1;
+};
 
+class DbStatement {
+public:
+    DbStatement(const char* sql, sqlite3* db);
+
+    [[nodiscard]] Binder binder();
+
+private:
     std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)> m_stmt;
 };
