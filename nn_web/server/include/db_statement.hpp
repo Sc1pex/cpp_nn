@@ -66,10 +66,10 @@ public:
     explicit Binder(sqlite3_stmt& stmt) : m_stmt(stmt) {
     }
 
-    [[nodiscard]] Binder& bind_int(int value);
-    [[nodiscard]] Binder& bind_double(double value);
-    [[nodiscard]] Binder& bind_text(const char* text);
-    [[nodiscard]] Binder& bind_blob(const void* data, int bytes);
+    [[nodiscard]] Binder&& bind_int(int value);
+    [[nodiscard]] Binder&& bind_double(double value);
+    [[nodiscard]] Binder&& bind_text(const char* text);
+    [[nodiscard]] Binder&& bind_blob(const void* data, int bytes);
 
     [[nodiscard]] Extractor execute() &&;
 

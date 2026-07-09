@@ -288,7 +288,7 @@ asio::awaitable<DBResult<std::vector<NetworkInfo>>> Db::get_networks() {
 
 asio::awaitable<DBResult<bool>> Db::delete_network_by_id(int id) {
     co_return co_await run_on_pool([this, id]() -> std::expected<bool, DBError> {
-        auto ex = m_statements.delete_network_by_id.bind(id);
+        auto ex = m_statements.delete_network_by_id.binder().bind_int(id).execute();
 
         auto res = ex.next();
         if (!res) {
@@ -408,7 +408,11 @@ asio::awaitable<DBResult<void>>
     Db::insert_training_session(int network_id, int epoch, int test_correct) {
     co_return co_await run_on_pool(
         [this, network_id, epoch, test_correct]() -> std::expected<void, DBError> {
-        auto ex = m_statements.insert_training_session.bind(network_id, epoch, test_correct);
+        auto ex = m_statements.insert_training_session.binder()
+                      .bind_int(network_id)
+                      .bind_int(epoch)
+                      .bind_int(test_correct)
+                      .execute();
 
         auto res = ex.next();
         if (!res) {
@@ -422,18 +426,19 @@ asio::awaitable<DBResult<void>>
 asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) {
     co_return co_await run_on_pool(
         [this, network_id]() -> std::expected<std::vector<int>, DBError> {
-        auto ex = m_statements.get_training_sessions.bind(network_id);
+        auto ex = m_statements.get_training_sessions.binder().bind_int(network_id).execute();
 
         std::vector<int> sessions;
         while (true) {
-            auto res = ex.next();
+            auto res = ex.next_row();
             if (!res) {
                 return std::unexpected(res.error());
             }
             if (!*res) {
                 break;
             }
-            sessions.push_back(std::get<0>(**res));
+            auto row = **res;
+            sessions.push_back(row.next_int());
         }
         return sessions;
     }, m_pool
@@ -443,7 +448,11 @@ asio::awaitable<DBResult<std::vector<int>>> Db::get_test_points(int network_id) 
 asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, double loss) {
     co_return co_await run_on_pool(
         [this, network_id, step, loss]() -> std::expected<void, DBError> {
-        auto ex = m_statements.insert_loss_point.bind(network_id, step, loss);
+        auto ex = m_statements.insert_loss_point.binder()
+                      .bind_int(network_id)
+                      .bind_int(step)
+                      .bind_double(loss)
+                      .execute();
 
         auto res = ex.next();
         if (!res) {
@@ -457,19 +466,19 @@ asio::awaitable<DBResult<void>> Db::insert_loss_point(int network_id, int step, 
 asio::awaitable<DBResult<std::vector<double>>> Db::get_loss_points(int network_id) {
     co_return co_await run_on_pool(
         [this, network_id]() -> std::expected<std::vector<double>, DBError> {
-        auto ex = m_statements.get_loss_points.bind(network_id);
+        auto ex = m_statements.get_loss_points.binder().bind_int(network_id).execute();
 
         std::vector<double> points;
         while (true) {
-            auto res = ex.next();
+            auto res = ex.next_row();
 
             if (!res) {
                 return std::unexpected(res.error());
             } else if (!*res) {
                 break;
-            } else {
-                points.push_back(std::get<0>(**res));
             }
+            auto row = **res;
+            points.push_back(row.next_double());
         }
 
         return points;

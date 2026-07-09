@@ -76,11 +76,11 @@ private:
     using StmtPtr = std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>;
     using StmtsMap = std::unordered_map<const char*, StmtPtr>;
     struct Statements {
-        DbStatement<BindList<int>, ColumnList<>> delete_network_by_id;
-        DbStatement<BindList<int, int, int>, ColumnList<>> insert_training_session;
-        DbStatement<BindList<int>, ColumnList<int>> get_training_sessions;
-        DbStatement<BindList<int, int, double>, ColumnList<>> insert_loss_point;
-        DbStatement<BindList<int>, ColumnList<double>> get_loss_points;
+        DbStatement delete_network_by_id;
+        DbStatement insert_training_session;
+        DbStatement get_training_sessions;
+        DbStatement insert_loss_point;
+        DbStatement get_loss_points;
     };
     static Statements make_statements(sqlite3* db);
 

@@ -55,28 +55,28 @@ void check_bind_rc(int rc) {
     }
 }
 
-Binder& Binder::bind_int(int value) {
+Binder&& Binder::bind_int(int value) {
     int rc = sqlite3_bind_int(&m_stmt, m_bind_idx++, value);
     check_bind_rc(rc);
-    return *this;
+    return std::move(*this);
 }
 
-Binder& Binder::bind_double(double value) {
+Binder&& Binder::bind_double(double value) {
     int rc = sqlite3_bind_double(&m_stmt, m_bind_idx++, value);
     check_bind_rc(rc);
-    return *this;
+    return std::move(*this);
 }
 
-Binder& Binder::bind_text(const char* text) {
+Binder&& Binder::bind_text(const char* text) {
     int rc = sqlite3_bind_text(&m_stmt, m_bind_idx++, text, -1, SQLITE_STATIC);
     check_bind_rc(rc);
-    return *this;
+    return std::move(*this);
 }
 
-Binder& Binder::bind_blob(const void* data, int bytes) {
+Binder&& Binder::bind_blob(const void* data, int bytes) {
     int rc = sqlite3_bind_blob(&m_stmt, m_bind_idx++, data, bytes, SQLITE_STATIC);
     check_bind_rc(rc);
-    return *this;
+    return std::move(*this);
 }
 
 Extractor Binder::execute() && {
